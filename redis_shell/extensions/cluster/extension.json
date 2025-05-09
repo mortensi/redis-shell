@@ -1,0 +1,39 @@
+{
+    "name": "cluster",
+    "version": "1.0.0",
+    "description": "Redis Cluster Management Extension",
+    "namespace": "/cluster",
+    "commands": [
+        {
+            "name": "deploy",
+            "description": "Deploy a Redis cluster with 3 nodes on ports 30001-30003",
+            "usage": "/cluster deploy",
+            "autocompletion": {
+                "triggers": ["deploy"],
+                "description": "Deploy a new Redis cluster"
+            }
+        },
+        {
+            "name": "info",
+            "description": "Get information about the current cluster",
+            "usage": "/cluster info",
+            "autocompletion": {
+                "triggers": ["info"],
+                "description": "Show cluster status and information"
+            }
+        },
+        {
+            "name": "stop",
+            "description": "Stop and clean up the current cluster",
+            "usage": "/cluster stop",
+            "autocompletion": {
+                "triggers": ["stop"],
+                "description": "Stop the cluster and clean up"
+            }
+        }
+    ],
+    "author": "Redis Shell Team",
+    "dependencies": {
+        "redis": ">=5.0.0"
+    }
+}
