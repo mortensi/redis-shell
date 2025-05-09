@@ -26,8 +26,8 @@ dependencies = [
 ]
 
 [project.urls]
-Homepage = "https://github.com/yourusername/redis-shell"
-Repository = "https://github.com/yourusername/redis-shell.git"
+Homepage = "https://github.com/mortensi/redis-shell"
+Repository = "https://github.com/mortensi/redis-shell.git"
 
 [project.scripts]
 redis-shell = "redis_shell.cli:main"
