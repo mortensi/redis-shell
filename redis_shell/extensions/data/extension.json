@@ -1,0 +1,76 @@
+{
+    "name": "data",
+    "version": "1.0.0",
+    "description": "Data export and import commands for Redis Shell.",
+    "namespace": "/data",
+    "commands": [
+        {
+            "name": "export",
+            "description": "Export Redis data to a file.",
+            "usage": "/data export [--all] [--pattern PATTERN] [--folder FOLDER] [--force-keys] [--cancel]",
+            "options": [
+                {
+                    "name": "--all",
+                    "description": "Export all keys",
+                    "is_flag": true
+                },
+                {
+                    "name": "--pattern",
+                    "description": "Pattern to match keys",
+                    "completion": "key_patterns"
+                },
+                {
+                    "name": "--folder",
+                    "description": "Folder to save the export file",
+                    "completion": "folders"
+                },
+                {
+                    "name": "--cancel",
+                    "description": "Cancel a running export operation",
+                    "is_flag": true
+                },
+                {
+                    "name": "--force-keys",
+                    "description": "Force using KEYS command instead of SCAN (faster but blocks Redis for large databases)",
+                    "is_flag": true
+                }
+            ]
+        },
+        {
+            "name": "import",
+            "description": "Import Redis data from a file.",
+            "usage": "/data import --file FILE_PATH",
+            "options": [
+                {
+                    "name": "--file",
+                    "description": "Path to the import file",
+                    "required": true,
+                    "completion": "export_files"
+                }
+            ]
+        },
+        {
+            "name": "status",
+            "description": "Check the status of data export/import operations.",
+            "usage": "/data status"
+        }
+    ],
+    "completions": {
+        "key_patterns": {
+            "type": "function",
+            "function": "get_key_patterns"
+        },
+        "folders": {
+            "type": "function",
+            "function": "get_folders"
+        },
+        "export_files": {
+            "type": "function",
+            "function": "get_export_files"
+        }
+    },
+    "author": "Redis Shell Team",
+    "dependencies": {
+        "redis": ">=5.0.0"
+    }
+}

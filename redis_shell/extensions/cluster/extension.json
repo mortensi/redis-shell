@@ -1,37 +1,47 @@
 {
     "name": "cluster",
     "version": "1.0.0",
-    "description": "Redis Cluster Management Extension",
+    "description": "Cluster management commands for Redis Shell.",
     "namespace": "/cluster",
     "commands": [
         {
             "name": "deploy",
-            "description": "Deploy a Redis cluster with 3 nodes on ports 30001-30003",
+            "description": "Deploy a new Redis cluster.",
             "usage": "/cluster deploy",
-            "autocompletion": {
-                "triggers": ["deploy"],
-                "description": "Deploy a new Redis cluster"
-            }
+            "legacy_command": "deploycluster",
+            "options": []
         },
+
         {
             "name": "info",
-            "description": "Get information about the current cluster",
+            "description": "Get information about the cluster.",
             "usage": "/cluster info",
-            "autocompletion": {
-                "triggers": ["info"],
-                "description": "Show cluster status and information"
-            }
+            "legacy_command": "clusterinfo",
+            "options": []
+        },
+        {
+            "name": "remove",
+            "description": "Remove the cluster and clean up.",
+            "usage": "/cluster remove",
+            "legacy_command": "removecluster",
+            "options": []
         },
         {
             "name": "stop",
-            "description": "Stop and clean up the current cluster",
+            "description": "Stop the cluster without cleaning up data.",
             "usage": "/cluster stop",
-            "autocompletion": {
-                "triggers": ["stop"],
-                "description": "Stop the cluster and clean up"
-            }
+            "legacy_command": "stopcluster",
+            "options": []
+        },
+        {
+            "name": "start",
+            "description": "Start the cluster without losing data.",
+            "usage": "/cluster start",
+            "legacy_command": "startcluster",
+            "options": []
         }
     ],
+    "completions": {},
     "author": "Redis Shell Team",
     "dependencies": {
         "redis": ">=5.0.0"

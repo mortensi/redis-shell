@@ -1,0 +1,80 @@
+{
+    "name": "connection",
+    "version": "1.0.0",
+    "description": "Connection management commands for Redis Shell.",
+    "namespace": "/connection",
+    "commands": [
+        {
+            "name": "create",
+            "description": "Create a new Redis connection.",
+            "usage": "/connection create [--host HOST] [--port PORT] [--db DB] [--password PASSWORD]",
+            "options": [
+                {
+                    "name": "--host",
+                    "description": "Redis host",
+                    "completion": "hosts"
+                },
+                {
+                    "name": "--port",
+                    "description": "Redis port",
+                    "completion": "ports"
+                },
+                {
+                    "name": "--db",
+                    "description": "Redis database number"
+                },
+                {
+                    "name": "--password",
+                    "description": "Redis password"
+                }
+            ]
+        },
+        {
+            "name": "destroy",
+            "description": "Remove a Redis connection.",
+            "usage": "/connection destroy <id>",
+            "options": [
+                {
+                    "name": "id",
+                    "description": "Connection ID to destroy",
+                    "completion": "connection_ids"
+                }
+            ]
+        },
+        {
+            "name": "list",
+            "description": "List all available Redis connections.",
+            "usage": "/connection list"
+        },
+        {
+            "name": "use",
+            "description": "Switch to a specific Redis connection.",
+            "usage": "/connection use <id>",
+            "options": [
+                {
+                    "name": "id",
+                    "description": "Connection ID to use",
+                    "completion": "connection_ids"
+                }
+            ]
+        }
+    ],
+    "completions": {
+        "hosts": {
+            "type": "function",
+            "function": "get_hosts"
+        },
+        "ports": {
+            "type": "function",
+            "function": "get_ports"
+        },
+        "connection_ids": {
+            "type": "function",
+            "function": "get_connection_ids"
+        }
+    },
+    "author": "Redis Shell Team",
+    "dependencies": {
+        "redis": ">=5.0.0"
+    }
+}
