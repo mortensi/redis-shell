@@ -2,6 +2,7 @@ from typing import Optional, Dict, Any
 import redis
 import time
 import os
+import atexit
 from .cluster import ClusterDeployer
 from ...state import StateManager
 
@@ -10,6 +11,7 @@ class ClusterCommands:
         self._deployer = None
         self._state = StateManager()
         self._cli = cli  # Store reference to CLI instance
+        atexit.register(self.save_state_on_exit)
 
     def _get_deployer(self):
         if not self._deployer:
@@ -255,3 +257,8 @@ class ClusterCommands:
             print("The cluster is running, but you may need to use '/resp' mode and run 'cluster info' directly for detailed information.")
 
         return "Cluster started with data preserved."
+
+    def save_state_on_exit(self):
+        """Ensure the state is saved to persistent storage on exit."""
+        print("Saving cluster state to disk on exit...")
+        self._state.save_to_disk()

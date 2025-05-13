@@ -27,6 +27,10 @@ class StateManager:
         with open(self.state_file, 'w') as f:
             json.dump(self._state, f, indent=2)
 
+    def save_to_disk(self):
+        """Save the current state to disk."""
+        self._save_state()
+
     def get_extension_state(self, extension: str) -> Dict[str, Any]:
         """Get state for an extension."""
         return self._state.get(extension, {})
