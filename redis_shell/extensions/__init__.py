@@ -105,7 +105,6 @@ class ExtensionManager:
         # If we have namespace, command, and partial option
         elif len(parts) >= 3:
             namespace, cmd_name, *rest = parts
-            partial_option = rest[-1] if rest else ""
 
             # Find the command definition
             if namespace in self.extensions:
@@ -113,29 +112,70 @@ class ExtensionManager:
                     if cmd['name'] == cmd_name:
                         # Check if the command has options defined
                         if 'options' in cmd:
-                            # Complete options
-                            for option in cmd['options']:
-                                option_name = option['name']
-                                if option_name.startswith(partial_option):
-                                    result.append((option_name, option['description']))
+                            # Track which options have already been provided
+                            provided_options = set()
+                            i = 0
+                            while i < len(rest) - 1:
+                                if rest[i].startswith('--'):
+                                    provided_options.add(rest[i])
+                                    # Skip the option value if it exists
+                                    if i + 1 < len(rest) - 1 and not rest[i + 1].startswith('--'):
+                                        i += 1
+                                i += 1
 
-                            # If the partial option matches an option with completion
-                            for option in cmd['options']:
-                                if option['name'] == partial_option and 'completion' in option:
-                                    # Get the completion function
-                                    completion_name = option['completion']
-                                    if 'completions' in self.extensions[namespace]['definition']:
-                                        completion_def = self.extensions[namespace]['definition']['completions'].get(completion_name)
-                                        if completion_def and completion_def['type'] == 'function':
-                                            # Call the completion function
-                                            func_name = completion_def['function']
-                                            if hasattr(self.extensions[namespace]['commands'], func_name):
-                                                completion_func = getattr(self.extensions[namespace]['commands'], func_name)
-                                                # Get completions for the next argument
-                                                next_arg = "" if len(rest) <= 1 else rest[-1]
-                                                completions = completion_func(next_arg)
-                                                for comp in completions:
-                                                    result.append((comp, ""))
+                            # Get the partial option or value
+                            partial_text = rest[-1] if rest else ""
+
+                            # If the partial text starts with --, it's an option
+                            if partial_text.startswith('--'):
+                                # Complete options that haven't been provided yet
+                                for option in cmd['options']:
+                                    option_name = option['name']
+                                    # Only suggest options that haven't been provided and match the partial text
+                                    if option_name not in provided_options and option_name.startswith(partial_text):
+                                        result.append((option_name, option['description']))
+
+                            # If the previous item is an option with completion, provide completions for its value
+                            elif len(rest) >= 2 and rest[-2].startswith('--'):
+                                option_name = rest[-2]
+                                # Find the option definition
+                                for option in cmd['options']:
+                                    if option['name'] == option_name and 'completion' in option:
+                                        # Get the completion function
+                                        completion_name = option['completion']
+                                        if 'completions' in self.extensions[namespace]['definition']:
+                                            completion_def = self.extensions[namespace]['definition']['completions'].get(completion_name)
+                                            if completion_def and completion_def['type'] == 'function':
+                                                # Call the completion function
+                                                func_name = completion_def['function']
+                                                if hasattr(self.extensions[namespace]['commands'], func_name):
+                                                    completion_func = getattr(self.extensions[namespace]['commands'], func_name)
+                                                    # Get completions for the value
+                                                    completions = completion_func(partial_text)
+                                                    for comp in completions:
+                                                        # Ensure we're returning valid completions
+                                                        if isinstance(comp, str):
+                                                            # For file paths, we want to return the full path
+                                                            # not just the basename, to avoid duplication
+                                                            result.append((comp, ""))
+
+                            # If we have all required options and no partial text, suggest the next option
+                            elif not partial_text:
+                                # Check which required options are missing
+                                missing_required = []
+                                for option in cmd['options']:
+                                    if option.get('required', False) and option['name'] not in provided_options:
+                                        missing_required.append(option)
+
+                                # If there are missing required options, suggest them
+                                if missing_required:
+                                    for option in missing_required:
+                                        result.append((option['name'], option['description']))
+                                # Otherwise, suggest all remaining options
+                                else:
+                                    for option in cmd['options']:
+                                        if option['name'] not in provided_options:
+                                            result.append((option['name'], option['description']))
 
         return result
 

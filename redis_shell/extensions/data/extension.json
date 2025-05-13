@@ -7,16 +7,11 @@
         {
             "name": "export",
             "description": "Export Redis data to a file.",
-            "usage": "/data export [--all] [--pattern PATTERN] [--folder FOLDER] [--force-keys] [--cancel]",
+            "usage": "/data export [--pattern PATTERN] [--folder FOLDER] [--force-keys] [--cancel]",
             "options": [
                 {
-                    "name": "--all",
-                    "description": "Export all keys",
-                    "is_flag": true
-                },
-                {
                     "name": "--pattern",
-                    "description": "Pattern to match keys",
+                    "description": "Pattern to match keys (default: \"*\")",
                     "completion": "key_patterns"
                 },
                 {

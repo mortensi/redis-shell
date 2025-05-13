@@ -1,6 +1,6 @@
 # Redis Shell
 
-An enhanced Redis CLI shell built with Python, providing both a structured command mode and a direct RESP mode for Redis operations.
+An enhanced Redis CLI shell built with Python, providing a unified interface for both Redis commands and extension commands.
 
 ## Installation
 
@@ -40,21 +40,21 @@ Options:
 
 ### Shell Commands
 
-The shell supports two modes, command autocompletion, and several utility commands:
+The shell provides command autocompletion and several utility commands:
 
 #### Autocompletion
 Press `Tab` to show available commands and their descriptions. The shell provides:
-- Shell command completion (always available)
-- Redis command completion (in shell mode)
-- Cluster command completion (in shell mode)
+- Shell command completion (commands starting with `/`)
+- Extension command completion (like `/cluster`, `/data`, `/connection`, etc.)
 
 #### Commands
 
-- `/shell`: Switch to shell mode (default) - Commands are validated before execution
-- `/resp`: Switch to RESP mode - Direct Redis protocol mode, like redis-cli
 - `/clear`: Clear the screen
 - `/help`: Show help message
 - `/exit`: Exit the shell
+- `/history`: Show command history
+  - Use `/history clear` to clear history
+  - Use `/history <number>` to run a specific command from history
 
 ### Examples
 
@@ -62,49 +62,94 @@ Press `Tab` to show available commands and their descriptions. The shell provide
 # Start the shell
 redis-shell
 
-# In shell mode (default)
+# Direct Redis commands
 redis> SET mykey "Hello World"
 OK
 redis> GET mykey
 "Hello World"
 
-# Switch to RESP mode
-redis> /resp
-Switched to RESP mode. Use Redis commands directly.
-[RESP] redis> HSET user:1 name "John" age "30"
+# Hash operations
+redis> HSET user:1 name "John" age "30"
 (integer) 2
-[RESP] redis> HGETALL user:1
+redis> HGETALL user:1
 1) "name"
 2) "John"
 3) "age"
 4) "30"
 
-# Switch back to shell mode
-[RESP] redis> /shell
-Switched to shell mode.
+# View command history
+redis> /history
+Command history:
+  1: SET mykey "Hello World"
+  2: GET mykey
+  3: HSET user:1 name "John" age "30"
+  4: HGETALL user:1
+
+# Run a command from history by its number
+redis> /history 2
+Running command: GET mykey
+Executed: GET mykey
+"Hello World"
 ```
 
-### Cluster Management
+### Extension Commands
 
-In shell mode, you can deploy and manage Redis clusters:
+The shell provides several extension commands for advanced functionality:
+
+#### Cluster Management
 
 ```bash
 # Deploy a cluster with default settings (3 masters, 3 replicas, starting at port 30000)
-redis> deployCluster
-
-# Deploy a custom cluster (5 masters, 5 replicas, starting at port 40000)
-redis> deployCluster 40000 1 5
+redis> /cluster deploy
 
 # Get cluster information
-redis> clusterInfo
+redis> /cluster info
 
 # Stop and clean up the cluster
-redis> stopCluster
+redis> /cluster remove
 ```
 
-Cluster deployment parameters:
-- `basePort`: Starting port number (default: 30000)
-- `replicas`: Number of replicas per master (default: 1)
-- `nodesPerReplica`: Number of master nodes (default: 3)
+#### Data Import/Export
 
-The total number of nodes will be `nodesPerReplica * (replicas + 1)`.
+```bash
+# Export all keys to a file
+redis> /data export
+
+# Export keys matching a pattern
+redis> /data export --pattern "user:*"
+
+# Import data from a file
+redis> /data import --file redis-export-20230101-123456-localhost-6379.txt
+
+# Check export/import status
+redis> /data status
+```
+
+#### Connection Management
+
+```bash
+# Create a new connection
+redis> /connection create --host redis.example.com --port 6379
+
+# List all connections
+redis> /connection list
+
+# Switch to a different connection
+redis> /connection use 2
+
+# Remove a connection
+redis> /connection destroy 2
+```
+
+#### Sentinel Management
+
+```bash
+# Deploy a Redis Sentinel setup
+redis> /sentinel deploy
+
+# Get Sentinel information
+redis> /sentinel info
+
+# Remove the Sentinel setup
+redis> /sentinel remove
+```

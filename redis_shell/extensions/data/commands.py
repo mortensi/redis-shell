@@ -3,12 +3,19 @@ import redis
 from redis.cluster import RedisCluster
 import argparse
 import os
+import glob
 import threading
 import datetime
 import base64
 import json
+import logging
 from ...state import StateManager
 from ...connection_manager import ConnectionManager
+from ...utils.file_utils import PathHandler
+from ...utils.completion_utils import completion_registry
+from ...utils.redis_utils import RedisConnectionHelper
+
+logger = logging.getLogger(__name__)
 
 class DataCommands:
     def __init__(self, cli=None):
@@ -33,25 +40,7 @@ class DataCommands:
         Returns:
             list: A list of completion items that match the incomplete text
         """
-        # Common Redis key patterns
-        patterns = [
-            "*",                  # All keys
-            "user:*",             # User-related keys
-            "session:*",          # Session-related keys
-            "cache:*",            # Cache-related keys
-            "counter:*",          # Counter-related keys
-            "hash:*",             # Hash-related keys
-            "list:*",             # List-related keys
-            "set:*",              # Set-related keys
-            "zset:*",             # Sorted set-related keys
-            "stream:*",           # Stream-related keys
-            "queue:*",            # Queue-related keys
-            "lock:*",             # Lock-related keys
-            "config:*"            # Configuration-related keys
-        ]
-
-        # Filter patterns based on the incomplete text
-        return [p for p in patterns if incomplete == "" or p.startswith(incomplete)]
+        return completion_registry.get_completions("key_patterns", incomplete)
 
     def get_folders(self, incomplete=""):
         """Return folder completions.
@@ -62,42 +51,7 @@ class DataCommands:
         Returns:
             list: A list of folder paths that match the incomplete text
         """
-        import os
-
-        # Get the current directory
-        current_dir = os.getcwd()
-
-        # If incomplete starts with a path separator, treat it as an absolute path
-        if incomplete.startswith(os.path.sep):
-            base_dir = os.path.dirname(incomplete) or os.path.sep
-            prefix = incomplete
-        # If incomplete contains a path separator, treat it as a relative path
-        elif os.path.sep in incomplete:
-            base_dir = os.path.join(current_dir, os.path.dirname(incomplete))
-            prefix = incomplete
-        # Otherwise, use the current directory
-        else:
-            base_dir = current_dir
-            prefix = incomplete
-
-        try:
-            # Get all directories in the base directory
-            dirs = []
-            for item in os.listdir(base_dir):
-                full_path = os.path.join(base_dir, item)
-                if os.path.isdir(full_path):
-                    # If we're completing from the current directory, just use the directory name
-                    if base_dir == current_dir and os.path.sep not in prefix:
-                        dirs.append(item)
-                    # Otherwise, use the full path relative to the prefix
-                    else:
-                        rel_path = os.path.join(os.path.dirname(prefix), item)
-                        dirs.append(rel_path)
-
-            # Filter directories based on the incomplete text
-            return [d for d in dirs if incomplete == "" or d.startswith(incomplete)]
-        except (FileNotFoundError, PermissionError):
-            return []
+        return PathHandler.get_directory_completions(incomplete)
 
     def get_export_files(self, incomplete=""):
         """Return export file completions.
@@ -108,42 +62,47 @@ class DataCommands:
         Returns:
             list: A list of export file paths that match the incomplete text
         """
-        import os
-        import glob
+        # Get directory completions first
+        completions = PathHandler.get_directory_completions(incomplete)
 
-        # Get the current directory
-        current_dir = os.getcwd()
-
-        # If incomplete starts with a path separator, treat it as an absolute path
-        if incomplete.startswith(os.path.sep):
-            base_dir = os.path.dirname(incomplete) or os.path.sep
-            prefix = incomplete
-        # If incomplete contains a path separator, treat it as a relative path
-        elif os.path.sep in incomplete:
-            base_dir = os.path.join(current_dir, os.path.dirname(incomplete))
-            prefix = incomplete
-        # Otherwise, use the current directory
-        else:
-            base_dir = current_dir
-            prefix = incomplete
+        # Then add file completions for Redis export files only
+        base_dir, prefix, is_absolute, path_prefix = PathHandler.parse_path(incomplete)
 
         try:
-            # Get all files in the base directory that match the redis-export pattern
-            files = []
-            pattern = os.path.join(base_dir, "redis-export-*.txt")
-            for file_path in glob.glob(pattern):
-                # If we're completing from the current directory, just use the file name
-                if base_dir == current_dir and os.path.sep not in prefix:
-                    files.append(os.path.basename(file_path))
-                # Otherwise, use the full path relative to the prefix
-                else:
-                    rel_path = os.path.join(os.path.dirname(prefix), os.path.basename(file_path))
-                    files.append(rel_path)
+            # Get all files in the base directory that match the pattern
+            full_pattern = os.path.join(base_dir, "*.txt")
 
-            # Filter files based on the incomplete text
-            return [f for f in files if incomplete == "" or f.startswith(incomplete)]
+            for file_path in glob.glob(full_pattern):
+                if os.path.isfile(file_path):
+                    file_name = os.path.basename(file_path)
+
+                    # Only include files that start with redis-export-
+                    if not file_name.startswith('redis-export-'):
+                        continue
+
+                    # Format the path based on whether we're using absolute or relative paths
+                    if is_absolute:
+                        # For absolute paths, preserve the directory structure
+                        if prefix and file_name.startswith(prefix):
+                            completions.append(path_prefix + file_name)
+                        elif not prefix:
+                            completions.append(path_prefix + file_name)
+                    elif os.path.sep in incomplete:
+                        # For relative paths with directories, preserve the directory structure
+                        if prefix and file_name.startswith(prefix):
+                            completions.append(path_prefix + file_name)
+                        elif not prefix:
+                            completions.append(path_prefix + file_name)
+                    else:
+                        # For simple completions in the current directory
+                        if prefix and file_name.startswith(prefix):
+                            completions.append(file_name)
+                        elif not prefix:
+                            completions.append(file_name)
         except (FileNotFoundError, PermissionError):
-            return []
+            pass
+
+        return completions
 
     def _format_for_command(self, value):
         """Format a value for use in a Redis command.
@@ -209,8 +168,7 @@ class DataCommands:
                 print("No export thread running.")
 
         parser = argparse.ArgumentParser(description='Export Redis data')
-        parser.add_argument('--all', action='store_true', help='Export all keys')
-        parser.add_argument('--pattern', type=str, default='*', help='Pattern to match keys')
+        parser.add_argument('--pattern', type=str, default='*', help='Pattern to match keys (default: "*")')
         parser.add_argument('--folder', type=str, default='.', help='Folder to save the export file')
         parser.add_argument('--cancel', action='store_true', help='Cancel a running export operation')
         parser.add_argument('--force-keys', action='store_true', help='Force using KEYS command instead of SCAN')
@@ -226,8 +184,8 @@ class DataCommands:
                 else:
                     return "No export operation is currently running."
 
-            # If --all is specified, use '*' as the pattern
-            pattern = '*' if parsed_args.all else parsed_args.pattern
+            # Get the pattern, folder, and force_keys options
+            pattern = parsed_args.pattern
             folder = parsed_args.folder
             force_keys = parsed_args.force_keys
 
