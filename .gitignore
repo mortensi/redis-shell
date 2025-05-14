@@ -49,3 +49,8 @@ build/
 *.log
 .env.local
 .env.*.local
+
+# Custom
+redis-export*
+*.conf
+*.rdb
