@@ -1,6 +1,7 @@
 from typing import Optional, Dict, Any
 import redis
 import time
+import os
 from .cluster import ClusterDeployer
 from ...state import StateManager
 
@@ -178,9 +179,10 @@ class ClusterCommands:
         It will:
         1. Try to get ports from the state file
         2. If no state is found, use default ports
-        3. Kill any Redis processes on those ports
-        4. Remove all cluster configuration files
-        5. Clear the state
+        3. Try to gracefully shut down Redis instances using the SHUTDOWN command
+        4. Fall back to killing processes if SHUTDOWN fails
+        5. Remove all cluster configuration files
+        6. Clear the state
         """
         # Get ports to clean up
         ports_to_clean = []
@@ -203,10 +205,30 @@ class ClusterCommands:
             self._deployer = ClusterDeployer()
         self._deployer.ports = ports_to_clean
 
-        # Kill any Redis processes on these ports
+        # First, try to gracefully shut down Redis instances
+        shutdown_success = {}
+        for port in ports_to_clean:
+            shutdown_success[port] = False
+            if ClusterDeployer.is_port_in_use(port):
+                try:
+                    # Try to connect to Redis on this port
+                    r = redis.Redis(host='localhost', port=port)
+                    # Check if it's responsive
+                    if r.ping():
+                        # Send shutdown command
+                        r.shutdown()
+                        print(f"Gracefully shut down Redis server on port {port}")
+                        shutdown_success[port] = True
+                except Exception as e:
+                    print(f"Could not gracefully shut down Redis on port {port}: {str(e)}")
+
+        # Give some time for Redis to shut down
+        time.sleep(1)
+
+        # For any instances that didn't shut down gracefully, try killing processes
         killed_processes = False
         for port in ports_to_clean:
-            if ClusterDeployer.is_port_in_use(port):
+            if not shutdown_success[port] and ClusterDeployer.is_port_in_use(port):
                 try:
                     # Try to kill processes on this port
                     killed_pids = ClusterDeployer.kill_processes_by_port(port, force=False)
@@ -232,19 +254,38 @@ class ClusterCommands:
                     print(f"Error forcefully stopping Redis on port {port}: {str(e)}")
 
         # Clean up configuration files
-        self._deployer.cleanup()
+        for port in ports_to_clean:
+            try:
+                # Try to remove configuration files
+                if os.path.exists(f'redis-{port}.conf'):
+                    os.remove(f'redis-{port}.conf')
+                    print(f"Removed redis-{port}.conf")
+
+                if os.path.exists(f'nodes-{port}.conf'):
+                    os.remove(f'nodes-{port}.conf')
+                    print(f"Removed nodes-{port}.conf")
+            except Exception as e:
+                print(f"Error removing configuration files for port {port}: {e}")
 
         # Clear state and deployer
         self._deployer = None
         self._state.clear_extension_state('cluster')
 
-        if killed_processes:
+        if any(shutdown_success.values()):
+            return "Cluster processes gracefully shut down and configuration cleaned up."
+        elif killed_processes:
             return "Cluster processes stopped and configuration cleaned up."
         else:
             return "No running cluster processes found. Configuration cleaned up."
 
     def _stop(self) -> str:
-        """Stop the cluster without cleaning up data."""
+        """Stop the cluster without cleaning up data.
+
+        This method will:
+        1. Try to gracefully shut down Redis instances using the SHUTDOWN command
+        2. Fall back to killing processes if SHUTDOWN fails
+        3. Update the state to indicate the cluster is stopped but can be restarted
+        """
         state = self._state.get_extension_state('cluster')
         if not state.get('active'):
             return "No active cluster."
@@ -254,19 +295,39 @@ class ClusterCommands:
             self._deployer = ClusterDeployer()
             self._deployer.ports = state['ports']
 
-        # Actually stop the Redis processes
+        # First, try to gracefully shut down Redis instances
+        shutdown_success = {}
+        for port in self._deployer.ports:
+            shutdown_success[port] = False
+            if ClusterDeployer.is_port_in_use(port):
+                try:
+                    # Try to connect to Redis on this port
+                    r = redis.Redis(host='localhost', port=port)
+                    # Check if it's responsive
+                    if r.ping():
+                        # Send shutdown command with SAVE option to ensure data is saved
+                        r.shutdown(save=True)
+                        print(f"Gracefully shut down Redis server on port {port} with data saved")
+                        shutdown_success[port] = True
+                except Exception as e:
+                    print(f"Could not gracefully shut down Redis on port {port}: {str(e)}")
+
+        # Give some time for Redis to shut down
+        time.sleep(1)
+
+        # For any instances that didn't shut down gracefully, try terminating processes
+        # First, terminate processes we have references to
         if self._deployer.processes:
             for proc in self._deployer.processes:
                 try:
                     proc.terminate()
                     proc.wait(1)
                 except Exception as e:
-                    print(f"Error stopping process: {e}")
+                    print(f"Error terminating process: {e}")
 
-        # If we don't have process references (e.g., after a restart),
-        # try to find and kill Redis processes on these ports
-        else:
-            for port in self._deployer.ports:
+        # Then check if any ports are still in use and try to kill those processes
+        for port in self._deployer.ports:
+            if not shutdown_success[port] and ClusterDeployer.is_port_in_use(port):
                 try:
                     # Kill processes using this port
                     killed_pids = ClusterDeployer.kill_processes_by_port(port, force=False)
@@ -307,7 +368,10 @@ class ClusterCommands:
         state['running'] = False
         self._state.set_extension_state('cluster', state)
 
-        return "Cluster stopped but data preserved."
+        if any(shutdown_success.values()):
+            return "Cluster gracefully stopped with data preserved."
+        else:
+            return "Cluster stopped but data preserved."
 
     def _start(self) -> str:
         """Start the cluster without losing data."""

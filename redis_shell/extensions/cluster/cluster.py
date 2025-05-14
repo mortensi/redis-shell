@@ -189,11 +189,32 @@ class ClusterDeployer:
         """Clean up the cluster by stopping processes and removing configuration files.
 
         This method will:
-        1. Try to terminate processes we have references to
-        2. Try to kill any processes using the cluster ports
+        1. Try to gracefully shut down Redis instances using the SHUTDOWN command
+        2. Fall back to terminating processes if SHUTDOWN fails
         3. Remove all configuration files
         """
-        # Stop Redis processes we have references to
+        # First, try to gracefully shut down Redis instances
+        shutdown_success = {}
+        for port in self.ports:
+            shutdown_success[port] = False
+            if self.is_port_in_use(port):
+                try:
+                    # Try to connect to Redis on this port
+                    r = redis.Redis(host='localhost', port=port)
+                    # Check if it's responsive
+                    if r.ping():
+                        # Send shutdown command
+                        r.shutdown()
+                        print(f"Gracefully shut down Redis server on port {port}")
+                        shutdown_success[port] = True
+                except Exception as e:
+                    print(f"Could not gracefully shut down Redis on port {port}: {e}")
+
+        # Give some time for Redis to shut down
+        time.sleep(1)
+
+        # For any instances that didn't shut down gracefully, try terminating processes
+        # First, terminate processes we have references to
         for proc in self.processes:
             try:
                 proc.terminate()
@@ -201,10 +222,9 @@ class ClusterDeployer:
             except Exception as e:
                 print(f"Error terminating process: {e}")
 
-        # Also try to kill any processes using these ports
-        # This is useful if we don't have process references (e.g., after a restart)
+        # Then check if any ports are still in use and try to kill those processes
         for port in self.ports:
-            if self.is_port_in_use(port):
+            if not shutdown_success[port] and self.is_port_in_use(port):
                 try:
                     # First try with SIGTERM
                     killed_pids = self.kill_processes_by_port(port, force=False)
@@ -213,8 +233,8 @@ class ClusterDeployer:
                 except Exception as e:
                     print(f"Error stopping Redis on port {port}: {e}")
 
-        # Check if any ports are still in use and try again with SIGKILL
-        time.sleep(0.5)  # Give some time for processes to terminate
+        # Check if any ports are still in use and try again with SIGKILL as a last resort
+        time.sleep(0.5)
         for port in self.ports:
             if self.is_port_in_use(port):
                 try:
