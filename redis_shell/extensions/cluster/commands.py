@@ -1,8 +1,6 @@
 from typing import Optional, Dict, Any
 import redis
 import time
-import os
-import atexit
 from .cluster import ClusterDeployer
 from ...state import StateManager
 
@@ -11,7 +9,6 @@ class ClusterCommands:
         self._deployer = None
         self._state = StateManager()
         self._cli = cli  # Store reference to CLI instance
-        atexit.register(self.save_state_on_exit)
 
     def _get_deployer(self):
         if not self._deployer:
@@ -62,82 +59,189 @@ class ClusterCommands:
             return f"Error deploying cluster: {str(e)}"
 
     def _info(self) -> str:
-        """Get cluster information."""
+        """Get cluster information.
+
+        This method checks the status of a Redis cluster by:
+        1. Reading cluster info from the state file
+        2. Attempting to connect to any available node in the cluster
+        3. Checking the cluster status live
+        """
+        # First check if we have a cluster in the state file
         state = self._state.get_extension_state('cluster')
-        if not state.get('active'):
-            return "No active cluster. Use '/cluster deploy' to create one."
+        ports_to_check = []
 
-        if not self._deployer:
-            # Recreate deployer from state
-            self._deployer = ClusterDeployer()
-            self._deployer.ports = state['ports']
-
-        # Check if the cluster is actually running by checking ports and connectivity
-        cluster_running = False
-
-        # First check if the ports are in use
-        ports_in_use = all(ClusterDeployer.is_port_in_use(port) for port in self._deployer.ports)
-
-        # If ports are in use, try to connect to verify Redis is running
-        if ports_in_use:
-            try:
-                # Try to connect to the first node
-                node = redis.Redis(port=self._deployer.ports[0])
-                # Try a simple ping to see if it's responsive
-                node.ping()
-
-                # Verify this is our cluster by checking for the config file
-                # This ensures we're not connecting to some other Redis instance on these ports
-                cluster_is_ours = any(os.path.exists(f"redis-{port}.conf") for port in self._deployer.ports)
-
-                if cluster_is_ours:
-                    cluster_running = True
-                else:
-                    # There's a Redis instance running on these ports, but it's not our cluster
-                    return "Found Redis instances on the expected ports, but they don't appear to be from the cluster created by '/cluster deploy'."
-
-            except Exception:
-                # If we can't connect, the cluster is not running properly
-                cluster_running = False
+        if state.get('active') and 'ports' in state:
+            # Get ports from state file
+            ports_to_check = state['ports']
+            print(f"Found cluster configuration in state file with ports: {ports_to_check}")
         else:
-            # If ports are not in use, cluster is definitely not running
-            cluster_running = False
+            # No cluster in state file, use default ports
+            print("No cluster configuration found in state file. Using default ports.")
+            # Use default ports from ClusterDeployer
+            if not self._deployer:
+                self._deployer = ClusterDeployer()
+            ports_to_check = self._deployer.ports
 
-        # Update the state based on our check
-        state['running'] = cluster_running
-        self._state.set_extension_state('cluster', state)
+        # Try to connect to any available node
+        connected_port = None
+        node = None
 
-        # If the cluster is not running, return a message
-        if not cluster_running:
-            return "Cluster is currently stopped. Use '/cluster start' to restart it."
+        for port in ports_to_check:
+            if ClusterDeployer.is_port_in_use(port):
+                try:
+                    # Try to connect to this node
+                    temp_node = redis.Redis(port=port)
+                    # Check if it's responsive
+                    temp_node.ping()
+                    # Found a working node
+                    connected_port = port
+                    node = temp_node
+                    print(f"Successfully connected to Redis node on port {port}")
+                    break
+                except Exception as e:
+                    print(f"Port {port} is in use but could not connect to Redis: {str(e)}")
+                    continue
 
-        # If the cluster is running, get its status
+        # If we couldn't connect to any node
+        if not node:
+            # Update state if it exists
+            if state.get('active'):
+                state['running'] = False
+                self._state.set_extension_state('cluster', state)
+
+            return "No running Redis cluster found. Use '/cluster deploy' to create one."
+
+        # We have a connection, now check if it's a cluster
         try:
+            # Try to run a cluster command to verify it's a cluster
+            # If this succeeds, it's a cluster; if it fails, it will throw an exception
+            node.execute_command('CLUSTER INFO')
+
+            # If we get here, it's a cluster. Update the deployer and state
+            if not self._deployer:
+                self._deployer = ClusterDeployer()
+
+            # Update ports in deployer if needed
+            if connected_port not in self._deployer.ports:
+                # We connected to a port that's not in our default list
+                # Try to get all cluster nodes
+                try:
+                    slots = node.execute_command('CLUSTER SLOTS')
+                    cluster_ports = set()
+
+                    # Extract all ports from slots info
+                    if isinstance(slots, list):
+                        for slot_range in slots:
+                            if isinstance(slot_range, list) and len(slot_range) >= 3:
+                                # Add master port
+                                master_info = slot_range[2]
+                                if isinstance(master_info, list) and len(master_info) >= 2:
+                                    cluster_ports.add(master_info[1])
+
+                                # Add replica ports
+                                for i in range(3, len(slot_range)):
+                                    replica_info = slot_range[i]
+                                    if isinstance(replica_info, list) and len(replica_info) >= 2:
+                                        cluster_ports.add(replica_info[1])
+
+                    if cluster_ports:
+                        self._deployer.ports = list(cluster_ports)
+                        print(f"Updated cluster ports to: {self._deployer.ports}")
+                except Exception as e:
+                    # If we can't get slots info, just use the connected port
+                    self._deployer.ports = [connected_port]
+                    print(f"Could not get cluster slots, using connected port: {connected_port}")
+
+            # Update state
+            state = {
+                'active': True,
+                'running': True,
+                'ports': self._deployer.ports
+            }
+            self._state.set_extension_state('cluster', state)
+
+            # Get detailed cluster status
             status = self._deployer.check_cluster()
             state['status'] = status
             self._state.set_extension_state('cluster', state)
             return status
+
         except Exception as e:
-            # This is unexpected - we could ping but not get cluster info
-            # Don't change the running state, just report the error
-            print(f"Warning: Error getting detailed cluster info: {str(e)}")
-            return "Cluster is running, but could not get detailed information. Try using '/resp' mode and running 'cluster info' directly."
+            # This is not a cluster or there was an error
+            print(f"Error checking cluster status: {str(e)}")
+            return f"Connected to Redis on port {connected_port}, but it doesn't appear to be a cluster or there was an error: {str(e)}"
 
     def _remove(self) -> str:
-        """Remove the cluster and clean up."""
+        """Remove the cluster and clean up.
+
+        This method attempts to clean up the cluster regardless of the state in the state file.
+        It will:
+        1. Try to get ports from the state file
+        2. If no state is found, use default ports
+        3. Kill any Redis processes on those ports
+        4. Remove all cluster configuration files
+        5. Clear the state
+        """
+        # Get ports to clean up
+        ports_to_clean = []
         state = self._state.get_extension_state('cluster')
-        if not state.get('active'):
-            return "No active cluster."
 
+        if state.get('active') and 'ports' in state:
+            # Get ports from state file
+            ports_to_clean = state['ports']
+            print(f"Found cluster configuration in state file with ports: {ports_to_clean}")
+        else:
+            # No cluster in state file, use default ports
+            print("No cluster configuration found in state file. Using default ports.")
+            # Use default ports from ClusterDeployer
+            if not self._deployer:
+                self._deployer = ClusterDeployer()
+            ports_to_clean = self._deployer.ports
+
+        # Create or update deployer
         if not self._deployer:
-            # Recreate deployer from state
             self._deployer = ClusterDeployer()
-            self._deployer.ports = state['ports']
+        self._deployer.ports = ports_to_clean
 
+        # Kill any Redis processes on these ports
+        killed_processes = False
+        for port in ports_to_clean:
+            if ClusterDeployer.is_port_in_use(port):
+                try:
+                    # Try to kill processes on this port
+                    killed_pids = ClusterDeployer.kill_processes_by_port(port, force=False)
+                    if killed_pids:
+                        killed_processes = True
+                        for pid in killed_pids:
+                            print(f"Stopped Redis server on port {port} (PID: {pid})")
+                except Exception as e:
+                    print(f"Error stopping Redis on port {port}: {str(e)}")
+
+        # If some processes were resistant, try again with force
+        time.sleep(0.5)  # Give some time for processes to terminate
+        for port in ports_to_clean:
+            if ClusterDeployer.is_port_in_use(port):
+                try:
+                    # Kill processes using this port with SIGKILL
+                    killed_pids = ClusterDeployer.kill_processes_by_port(port, force=True)
+                    if killed_pids:
+                        killed_processes = True
+                        for pid in killed_pids:
+                            print(f"Forcefully stopped Redis server on port {port} (PID: {pid})")
+                except Exception as e:
+                    print(f"Error forcefully stopping Redis on port {port}: {str(e)}")
+
+        # Clean up configuration files
         self._deployer.cleanup()
+
+        # Clear state and deployer
         self._deployer = None
         self._state.clear_extension_state('cluster')
-        return "Cluster removed and cleaned up."
+
+        if killed_processes:
+            return "Cluster processes stopped and configuration cleaned up."
+        else:
+            return "No running cluster processes found. Configuration cleaned up."
 
     def _stop(self) -> str:
         """Stop the cluster without cleaning up data."""
@@ -260,5 +364,4 @@ class ClusterCommands:
 
     def save_state_on_exit(self):
         """Ensure the state is saved to persistent storage on exit."""
-        print("Saving cluster state to disk on exit...")
         self._state.save_to_disk()

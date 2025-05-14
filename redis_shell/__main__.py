@@ -9,7 +9,7 @@ import os
 import sys
 import logging
 from typing import Optional
-from .cli_improved_part2 import RedisCLI
+from .cli import RedisCLI
 from .utils.logging_utils import setup_logging
 from .config import config
 

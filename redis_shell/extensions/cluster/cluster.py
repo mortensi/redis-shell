@@ -186,19 +186,58 @@ class ClusterDeployer:
         return formatted_info
 
     def cleanup(self):
-        # Stop Redis processes
+        """Clean up the cluster by stopping processes and removing configuration files.
+
+        This method will:
+        1. Try to terminate processes we have references to
+        2. Try to kill any processes using the cluster ports
+        3. Remove all configuration files
+        """
+        # Stop Redis processes we have references to
         for proc in self.processes:
             try:
                 proc.terminate()
                 proc.wait(1)
-            except:
-                pass
+            except Exception as e:
+                print(f"Error terminating process: {e}")
+
+        # Also try to kill any processes using these ports
+        # This is useful if we don't have process references (e.g., after a restart)
+        for port in self.ports:
+            if self.is_port_in_use(port):
+                try:
+                    # First try with SIGTERM
+                    killed_pids = self.kill_processes_by_port(port, force=False)
+                    for pid in killed_pids:
+                        print(f"Stopped Redis server on port {port} (PID: {pid})")
+                except Exception as e:
+                    print(f"Error stopping Redis on port {port}: {e}")
+
+        # Check if any ports are still in use and try again with SIGKILL
+        time.sleep(0.5)  # Give some time for processes to terminate
+        for port in self.ports:
+            if self.is_port_in_use(port):
+                try:
+                    # Try with SIGKILL
+                    killed_pids = self.kill_processes_by_port(port, force=True)
+                    for pid in killed_pids:
+                        print(f"Forcefully stopped Redis server on port {port} (PID: {pid})")
+                except Exception as e:
+                    print(f"Error forcefully stopping Redis on port {port}: {e}")
+
+        # Clear the processes list
         self.processes = []
 
         # Clean up files
         for port in self.ports:
             try:
-                os.remove(f'redis-{port}.conf')
-                os.remove(f'nodes-{port}.conf')
-            except:
-                pass
+                # Try to remove configuration files
+                if os.path.exists(f'redis-{port}.conf'):
+                    os.remove(f'redis-{port}.conf')
+                    print(f"Removed redis-{port}.conf")
+
+                if os.path.exists(f'nodes-{port}.conf'):
+                    os.remove(f'nodes-{port}.conf')
+                    print(f"Removed nodes-{port}.conf")
+            except Exception as e:
+                print(f"Error removing configuration files for port {port}: {e}")
