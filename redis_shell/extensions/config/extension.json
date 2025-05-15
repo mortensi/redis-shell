@@ -1,0 +1,35 @@
+{
+    "name": "config",
+    "version": "1.0.0",
+    "description": "Configuration management commands for Redis Shell.",
+    "namespace": "/config",
+    "commands": [
+        {
+            "name": "get",
+            "description": "Get a configuration value.",
+            "usage": "/config get <section> <key>",
+            "options": [
+                {
+                    "name": "--all",
+                    "description": "Get all configuration values",
+                    "required": false
+                }
+            ]
+        },
+        {
+            "name": "set",
+            "description": "Set a configuration value.",
+            "usage": "/config set <section> <key> <value>",
+            "options": []
+        },
+        {
+            "name": "save",
+            "description": "Save configuration to disk.",
+            "usage": "/config save",
+            "options": []
+        }
+    ],
+    "completions": {},
+    "author": "Redis Shell Team",
+    "dependencies": {}
+}

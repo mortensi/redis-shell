@@ -5,7 +5,23 @@ from pathlib import Path
 
 class StateManager:
     def __init__(self):
-        self.state_file = os.path.expanduser("~/.redis-shell")
+        # Get state file path from configuration if available
+        try:
+            from .config import config
+            state_file_path = config.get('general', 'state_file')
+            if state_file_path:
+                # Ensure the directory exists
+                state_file = os.path.expanduser(state_file_path)
+                state_dir = os.path.dirname(state_file)
+                if state_dir and not os.path.exists(state_dir):
+                    os.makedirs(state_dir, exist_ok=True)
+                self.state_file = state_file
+            else:
+                self.state_file = os.path.expanduser("~/.redis-shell")
+        except (ImportError, AttributeError):
+            # Fall back to default if config is not available
+            self.state_file = os.path.expanduser("~/.redis-shell")
+
         self._state = self._load_state()
 
         # Initialize command history if it doesn't exist
@@ -24,12 +40,13 @@ class StateManager:
 
     def _save_state(self):
         """Save state to file."""
+        # Ensure the directory exists
+        state_dir = os.path.dirname(self.state_file)
+        if state_dir and not os.path.exists(state_dir):
+            os.makedirs(state_dir, exist_ok=True)
+
         with open(self.state_file, 'w') as f:
             json.dump(self._state, f, indent=2)
-
-    def save_to_disk(self):
-        """Save the current state to disk."""
-        self._save_state()
 
     def get_extension_state(self, extension: str) -> Dict[str, Any]:
         """Get state for an extension."""
@@ -79,3 +96,7 @@ class StateManager:
             List[str]: The command history
         """
         return self._state.get('command_history', [])
+
+    def save_to_disk(self):
+        """Explicitly save the current state to disk."""
+        self._save_state()

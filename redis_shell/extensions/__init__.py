@@ -1,8 +1,11 @@
 import os
 import json
+import sys
+import importlib.util
 from typing import Dict, Any, Optional, List, Tuple
 from importlib import import_module
 from ..connection_manager import ConnectionManager
+from ..config import config as app_config
 
 class ExtensionManager:
     def __init__(self, cli=None):
@@ -13,15 +16,48 @@ class ExtensionManager:
         self._load_extensions()
 
     def _load_extensions(self):
-        """Load all extensions from the extensions directory."""
+        """Load all extensions from multiple directories:
+        1. Built-in extensions from the package
+        2. System extensions from the system_extension_dir
+        3. User extensions from the extension_dir
+        """
+        # Load built-in extensions from the package
         extensions_dir = os.path.dirname(__file__)
+        self._load_built_in_extensions(extensions_dir)
+
+        # Load system extensions from system_extension_dir
+        system_ext_dir = app_config.get('extensions', 'system_extension_dir')
+        if system_ext_dir:
+            system_ext_dir = os.path.expanduser(system_ext_dir)
+            if os.path.exists(system_ext_dir):
+                self._load_external_extensions(system_ext_dir)
+
+        # Load user extensions from extension_dir
+        user_ext_dir = app_config.get('extensions', 'extension_dir')
+        if user_ext_dir:
+            user_ext_dir = os.path.expanduser(user_ext_dir)
+            if os.path.exists(user_ext_dir):
+                self._load_external_extensions(user_ext_dir)
+
+    def _load_built_in_extensions(self, extensions_dir):
+        """Load built-in extensions from the package."""
         for ext_name in os.listdir(extensions_dir):
             ext_path = os.path.join(extensions_dir, ext_name)
             if os.path.isdir(ext_path) and not ext_name.startswith('_'):
-                self._load_extension(ext_name, ext_path)
+                self._load_built_in_extension(ext_name, ext_path)
 
-    def _load_extension(self, name: str, path: str):
-        """Load a single extension."""
+    def _load_external_extensions(self, extensions_dir):
+        """Load external extensions from a directory."""
+        if not os.path.exists(extensions_dir):
+            return
+
+        for ext_name in os.listdir(extensions_dir):
+            ext_path = os.path.join(extensions_dir, ext_name)
+            if os.path.isdir(ext_path) and not ext_name.startswith('_'):
+                self._load_external_extension(ext_name, ext_path)
+
+    def _load_built_in_extension(self, name: str, path: str):
+        """Load a single built-in extension from the package."""
         json_path = os.path.join(path, 'extension.json')
         if not os.path.exists(json_path):
             return
@@ -60,7 +96,69 @@ class ExtensionManager:
                         if 'legacy_command' in cmd:
                             self.available_commands.append(cmd['legacy_command'])
         except Exception as e:
-            print(f"Error loading extension {name}: {str(e)}")
+            print(f"Error loading built-in extension {name}: {str(e)}")
+
+    def _load_external_extension(self, name: str, path: str):
+        """Load a single external extension from a directory."""
+        json_path = os.path.join(path, 'extension.json')
+        if not os.path.exists(json_path):
+            return
+
+        # Load extension definition
+        with open(json_path) as f:
+            definition = json.load(f)
+
+        # Import commands module
+        try:
+            # Use importlib.util to load the module from a file path
+            commands_py_path = os.path.join(path, 'commands.py')
+            if not os.path.exists(commands_py_path):
+                print(f"Error loading external extension {name}: commands.py not found")
+                return
+
+            # Create a unique module name to avoid conflicts
+            module_name = f"redis_shell_ext_{name}"
+
+            # Load the module from the file path
+            spec = importlib.util.spec_from_file_location(module_name, commands_py_path)
+            module = importlib.util.module_from_spec(spec)
+            sys.modules[module_name] = module
+            spec.loader.exec_module(module)
+
+            # Get the commands class
+            commands_class_name = f"{name.capitalize()}Commands"
+            if not hasattr(module, commands_class_name):
+                print(f"Error loading external extension {name}: {commands_class_name} class not found")
+                return
+
+            commands_class = getattr(module, commands_class_name)
+
+            # Store extension info
+            # Pass CLI instance to commands class if it accepts it
+            try:
+                # Try to initialize with CLI instance
+                commands_instance = commands_class(cli=self.cli)
+            except TypeError:
+                # Fall back to standard initialization if CLI parameter is not supported
+                commands_instance = commands_class()
+
+            self.extensions[definition['namespace']] = {
+                'definition': definition,
+                'commands': commands_instance
+            }
+
+            # Track all available commands from this extension
+            if 'commands' in definition:
+                for cmd in definition['commands']:
+                    if 'name' in cmd:
+                        # Add both the namespaced command and any legacy direct commands
+                        self.available_commands.append(f"{definition['namespace']} {cmd['name']}")
+
+                        # Some extensions might define legacy direct commands (without namespace)
+                        if 'legacy_command' in cmd:
+                            self.available_commands.append(cmd['legacy_command'])
+        except Exception as e:
+            print(f"Error loading external extension {name}: {str(e)}")
 
     def handle_command(self, command: str, args: list) -> Optional[str]:
         """Handle a command if it belongs to an extension."""

@@ -234,6 +234,7 @@ class RedisCLI:
                     return f'Invalid history index: {index}. Valid range is 1-{len(history)}.'
 
                 # Get the command from history
+                print(history)
                 cmd = history[index - 1]
                 print(f"Running command: {cmd}")
 
@@ -328,9 +329,11 @@ Note: Commands starting with '/' are extension commands.
                 # Get input with styled prompt
                 command_line = self.session.prompt(self.get_prompt(), style=self.style)
 
-                # Save command to history if not empty
-                if command_line.strip():
-                    self.state_manager.add_command_to_history(command_line.strip())
+                # Modify the method to avoid adding /history commands to history
+                if command_line.strip() and not command_line.strip().startswith('/history'):
+                    last_command = self.state_manager.get_command_history()[-1] if self.state_manager.get_command_history() else None
+                    if command_line.strip() != last_command:
+                        self.state_manager.add_command_to_history(command_line.strip())
 
                 # Split the command and arguments
                 parts = command_line.strip().split()
