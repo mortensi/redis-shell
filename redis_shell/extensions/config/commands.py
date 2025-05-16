@@ -7,7 +7,7 @@ This module provides commands for managing the Redis Shell configuration.
 from typing import Optional, Dict, Any, List
 import json
 import argparse
-from ...config import config
+from redis_shell.config import config
 
 class ConfigCommands:
     def __init__(self, cli=None):

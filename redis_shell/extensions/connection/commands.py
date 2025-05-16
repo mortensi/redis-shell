@@ -2,8 +2,8 @@ import redis
 from typing import Optional, Dict, Any, List
 import argparse
 import socket
-from ...state import StateManager
-from ...connection_manager import ConnectionManager
+from redis_shell.state import StateManager
+from redis_shell.connection_manager import ConnectionManager
 
 class ConnectionCommands:
     def __init__(self):
@@ -31,6 +31,9 @@ class ConnectionCommands:
         state['connections'] = self._connections
         state['current_connection_id'] = self._current_connection_id
         self._state.set_extension_state('connection', state)
+
+        # Force the state to be saved to disk immediately
+        self._state.save_to_disk()
 
     def _get_current_connection_id(self) -> Optional[str]:
         """Get the current connection ID."""
@@ -155,6 +158,8 @@ class ConnectionCommands:
 
         # Get connection info from the connection manager
         conn_info = self._connection_manager.get_connection_info(connection_id)
+
+
 
         # Return connection info to CLI for updating the connection
         return f"SWITCH_CONNECTION:{conn_info['host']}:{conn_info['port']}:{conn_info['db']}:{conn_info['password']}"

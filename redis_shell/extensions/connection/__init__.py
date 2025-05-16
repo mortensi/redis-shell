@@ -1,1 +1,3 @@
-# Connection extension for Redis Shell
+"""
+Connection extension for Redis Shell.
+"""

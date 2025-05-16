@@ -9,11 +9,11 @@ import datetime
 import base64
 import json
 import logging
-from ...state import StateManager
-from ...connection_manager import ConnectionManager
-from ...utils.file_utils import PathHandler
-from ...utils.completion_utils import completion_registry
-from ...utils.redis_utils import RedisConnectionHelper
+from redis_shell.state import StateManager
+from redis_shell.connection_manager import ConnectionManager
+from redis_shell.utils.file_utils import PathHandler
+from redis_shell.utils.completion_utils import completion_registry
+from redis_shell.utils.redis_utils import RedisConnectionHelper
 
 logger = logging.getLogger(__name__)
 
@@ -252,6 +252,9 @@ class DataCommands:
         """Thread function for exporting data."""
         try:
             # Get the current Redis connection from the connection manager
+            current_conn_id = self._connection_manager.get_current_connection_id()
+            print(f"Current connection ID from connection manager: {current_conn_id}")
+
             redis_client = self._connection_manager.get_redis_client()
 
             if redis_client:

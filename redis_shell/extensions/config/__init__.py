@@ -1,1 +1,3 @@
-# Config extension package
+"""
+Config extension for Redis Shell.
+"""

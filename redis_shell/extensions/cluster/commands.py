@@ -2,8 +2,17 @@ from typing import Optional, Dict, Any
 import redis
 import time
 import os
-from .cluster import ClusterDeployer
-from ...state import StateManager
+import sys
+import importlib.util
+
+# Import ClusterDeployer directly from the module
+cluster_module_path = os.path.join(os.path.dirname(__file__), 'cluster.py')
+spec = importlib.util.spec_from_file_location("cluster_module", cluster_module_path)
+cluster_module = importlib.util.module_from_spec(spec)
+spec.loader.exec_module(cluster_module)
+ClusterDeployer = cluster_module.ClusterDeployer
+
+from redis_shell.state import StateManager
 
 class ClusterCommands:
     def __init__(self, cli=None):

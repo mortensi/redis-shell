@@ -1,1 +1,5 @@
-# Sentinel extension for Redis Shell
+"""
+Sentinel extension for Redis Shell.
+"""
+
+from .sentinel import SentinelDeployer

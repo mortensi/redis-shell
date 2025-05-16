@@ -8,6 +8,9 @@ import redis
 from redis.cluster import RedisCluster
 from typing import Dict, Any, Optional, List, Tuple, Union
 import threading
+import logging
+
+logger = logging.getLogger(__name__)
 
 class ConnectionManager:
     """
@@ -62,6 +65,9 @@ class ConnectionManager:
     def set_current_connection_id(self, connection_id: str):
         """Set the current connection ID."""
         if connection_id in self._connections:
+            # Debugging log to verify when the current connection ID is set
+            logger.debug(f"Setting current connection ID to: {connection_id}")
+            logger.debug(f"Current connections: {self._connections}")
             self._current_connection_id = connection_id
             # Clear the Redis clients cache to force recreation
             self._redis_clients = {}
@@ -141,12 +147,12 @@ class ConnectionManager:
             cluster_nodes = []
 
             try:
-                print(f"Checking if Redis instance at {host}:{port} is part of a cluster...")
+                logger.debug(f"Checking if Redis instance at {host}:{port} is part of a cluster...")
                 slots_info = standard_client.execute_command('CLUSTER SLOTS')
 
                 if slots_info and isinstance(slots_info, list) and len(slots_info) > 0:
                     is_cluster = True
-                    print(f"Redis instance at {host}:{port} is part of a cluster. Will use Cluster API.")
+                    logger.info(f"Redis instance at {host}:{port} is part of a cluster. Will use Cluster API.")
 
                     # Extract cluster nodes from slots info
                     for slot_range in slots_info:
@@ -163,9 +169,9 @@ class ConnectionManager:
                                 node_addr = f"{master_host}:{master_port}"
                                 if node_addr not in cluster_nodes:
                                     cluster_nodes.append(node_addr)
-                                    print(f"Found cluster node: {node_addr} (master)")
+                                    logger.debug(f"Found cluster node: {node_addr} (master)")
             except Exception as e:
-                print(f"Not a cluster or error checking cluster status: {str(e)}")
+                logger.debug(f"Not a cluster or error checking cluster status: {str(e)}")
                 is_cluster = False
 
             # Create the appropriate Redis client based on whether it's a cluster
@@ -178,7 +184,7 @@ class ConnectionManager:
                         startup_nodes.append({"host": node_host, "port": int(node_port)})
 
                     # Create a RedisCluster client
-                    print(f"Creating RedisCluster client with {len(startup_nodes)} nodes")
+                    logger.debug(f"Creating RedisCluster client with {len(startup_nodes)} nodes")
                     # For Redis Cluster, we need to use the host:port format for the first node
                     # and let the client discover the rest of the cluster
                     first_node = startup_nodes[0]
@@ -188,7 +194,7 @@ class ConnectionManager:
                         password=password,
                         decode_responses=False
                     )
-                    print("Successfully created RedisCluster client")
+                    logger.debug("Successfully created RedisCluster client")
 
                     # Store the client in the cache
                     self._redis_clients[connection_id] = client
@@ -200,13 +206,13 @@ class ConnectionManager:
 
                     return client
                 except Exception as e:
-                    print(f"Error creating RedisCluster client: {str(e)}")
+                    logger.error(f"Error creating RedisCluster client: {str(e)}")
                     # If it's a cluster, we must use a cluster client
                     # Don't fall back to a standard client
                     raise
 
             # If not a cluster or cluster client creation failed, use standard Redis client
-            print(f"Using standard Redis client for {host}:{port}")
+            logger.debug(f"Using standard Redis client for {host}:{port}")
             client = redis.Redis(
                 host=host,
                 port=port,
@@ -225,7 +231,7 @@ class ConnectionManager:
             return client
 
         except Exception as e:
-            print(f"Error creating Redis client: {str(e)}")
+            logger.error(f"Error creating Redis client: {str(e)}")
             # If there's an error creating the client, return None
             return None
 

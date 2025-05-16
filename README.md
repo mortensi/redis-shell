@@ -26,6 +26,23 @@ source .venv/bin/activate  # On Windows: .venv\Scripts\activate
 uv pip install -e .
 ```
 
+## Building
+
+You can build the executable using `npx`
+
+```
+uv pip install pex
+
+pex . \
+>   -D . \
+>   -e redis_shell.cli:main \
+>   -o redis-shell.pex \
+>   --compile \
+>   --venv
+```
+
+and launch it as `./redis-shell.pex`
+
 ## Usage
 
 Start the Redis shell:

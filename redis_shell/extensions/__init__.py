@@ -3,7 +3,6 @@ import json
 import sys
 import importlib.util
 from typing import Dict, Any, Optional, List, Tuple
-from importlib import import_module
 from ..connection_manager import ConnectionManager
 from ..config import config as app_config
 
@@ -68,8 +67,28 @@ class ExtensionManager:
 
         # Import commands module
         try:
-            module = import_module(f'.{name}.commands', package='redis_shell.extensions')
-            commands_class = getattr(module, f"{name.capitalize()}Commands")
+            # Use importlib.util to load the module from a file path
+            commands_py_path = os.path.join(path, 'commands.py')
+            if not os.path.exists(commands_py_path):
+                print(f"Error loading built-in extension {name}: commands.py not found")
+                return
+
+            # Create a unique module name to avoid conflicts
+            module_name = f"redis_shell.extensions.{name}"
+
+            # Load the module from the file path
+            spec = importlib.util.spec_from_file_location(module_name, commands_py_path)
+            module = importlib.util.module_from_spec(spec)
+            sys.modules[module_name] = module
+            spec.loader.exec_module(module)
+
+            # Get the commands class
+            commands_class_name = f"{name.capitalize()}Commands"
+            if not hasattr(module, commands_class_name):
+                print(f"Error loading built-in extension {name}: {commands_class_name} class not found")
+                return
+
+            commands_class = getattr(module, commands_class_name)
 
             # Store extension info
             # Pass CLI instance to commands class if it accepts it
@@ -117,7 +136,7 @@ class ExtensionManager:
                 return
 
             # Create a unique module name to avoid conflicts
-            module_name = f"redis_shell_ext_{name}"
+            module_name = f"redis_shell.extensions.{name}"
 
             # Load the module from the file path
             spec = importlib.util.spec_from_file_location(module_name, commands_py_path)

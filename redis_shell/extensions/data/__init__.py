@@ -1,1 +1,3 @@
-# Data extension for Redis Shell
+"""
+Data extension for Redis Shell.
+"""
