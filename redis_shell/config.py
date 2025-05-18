@@ -1,9 +1,3 @@
-"""
-Configuration module for redis-shell.
-
-This module contains the configuration system for redis-shell.
-"""
-
 import os
 import json
 import logging
@@ -103,6 +97,16 @@ class Config:
     def _load_config(self) -> None:
         """Load configuration from file."""
         try:
+            # If the file exists but is empty, initialize it with default configuration
+            if os.path.isfile(self.config_file) and os.path.getsize(self.config_file) == 0:
+                logger.warning(f"Configuration file {self.config_file} is empty. Initializing with defaults.")
+                self.save_config()
+
+            # If the file does not exist, create it with default configuration
+            elif not os.path.isfile(self.config_file):
+                logger.warning(f"Configuration file {self.config_file} does not exist. Creating it with defaults.")
+                self.save_config()
+
             if os.path.isfile(self.config_file):
                 with open(self.config_file, 'r') as f:
                     user_config = json.load(f)

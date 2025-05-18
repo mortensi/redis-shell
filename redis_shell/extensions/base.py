@@ -10,7 +10,7 @@ import json
 import os
 import importlib.util
 import sys
-from ..utils.logging_utils import ExtensionError
+from redis_shell.utils.logging_utils import ExtensionError
 
 logger = logging.getLogger(__name__)
 

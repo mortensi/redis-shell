@@ -4,6 +4,9 @@ import argparse
 import socket
 from redis_shell.state import StateManager
 from redis_shell.connection_manager import ConnectionManager
+import logging
+
+logger = logging.getLogger(__name__)
 
 class ConnectionCommands:
     def __init__(self):
@@ -23,8 +26,8 @@ class ConnectionCommands:
     def _save_connections(self):
         """Save connections to state."""
         # Get the current state from the connection manager
-        self._connections = self._connection_manager.get_connections()
-        self._current_connection_id = self._connection_manager.get_current_connection_id()
+        #self._connections = self._connection_manager.get_connections()
+        #self._current_connection_id = self._connection_manager.get_current_connection_id()
 
         # Save to state
         state = self._state.get_extension_state('connection')
@@ -158,8 +161,6 @@ class ConnectionCommands:
 
         # Get connection info from the connection manager
         conn_info = self._connection_manager.get_connection_info(connection_id)
-
-
 
         # Return connection info to CLI for updating the connection
         return f"SWITCH_CONNECTION:{conn_info['host']}:{conn_info['port']}:{conn_info['db']}:{conn_info['password']}"

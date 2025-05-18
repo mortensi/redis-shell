@@ -138,20 +138,9 @@ class SentinelCommands:
             self._deployer.redis_ports = state.get('redis_ports', [40001, 40002, 40003])
             self._deployer.master_name = state.get('master_name', 'mymaster')
 
-        # Clean up the Redis and Sentinel processes and files
         self._deployer.cleanup()
         self._deployer = None
-
-        # Remove the sentinel information from the state file
-        print("Removing sentinel information from state file...")
         self._state.clear_extension_state('sentinel')
-
-        # Verify that the sentinel information has been removed
-        if 'sentinel' not in self._state._state:
-            print("Sentinel information successfully removed from state file.")
-        else:
-            print("Warning: Failed to remove sentinel information from state file.")
-
         return "Sentinel setup removed and cleaned up."
 
     def _stop(self) -> str:

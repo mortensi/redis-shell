@@ -3,15 +3,21 @@ import json
 import sys
 import importlib.util
 from typing import Dict, Any, Optional, List, Tuple
-from ..connection_manager import ConnectionManager
-from ..config import config as app_config
+from redis_shell.connection_manager import ConnectionManager
+from redis_shell.config import config as app_config
 
 class ExtensionManager:
     def __init__(self, cli=None):
         self.extensions: Dict[str, Any] = {}
         self.available_commands: List[str] = []  # Track all available commands
         self.cli = cli  # Store reference to CLI instance
-        self.connection_manager = ConnectionManager()  # Initialize connection manager
+
+        # Use the CLI's connection manager if available, otherwise create a new one
+        if cli and hasattr(cli, 'connection_manager'):
+            self.connection_manager = cli.connection_manager
+        else:
+            self.connection_manager = ConnectionManager()
+
         self._load_extensions()
 
     def _load_extensions(self):
@@ -181,19 +187,51 @@ class ExtensionManager:
 
     def handle_command(self, command: str, args: list) -> Optional[str]:
         """Handle a command if it belongs to an extension."""
+        result = None
+
         # Check if this is a direct namespace command (e.g., /cluster)
         if command in self.extensions:
-            return self.extensions[command]['commands'].handle_command(args[0], args[1:])
+            result = self.extensions[command]['commands'].handle_command(args[0], args[1:])
+        else:
+            # Check if this is a legacy command (e.g., deploycluster)
+            # We need to find which extension and command it maps to
+            for namespace, ext in self.extensions.items():
+                for cmd_def in ext['definition']['commands']:
+                    if 'legacy_command' in cmd_def and cmd_def['legacy_command'] == command:
+                        # Found a legacy command, execute it through the extension
+                        result = ext['commands'].handle_command(cmd_def['name'], args)
+                        break
+                if result is not None:
+                    break
 
-        # Check if this is a legacy command (e.g., deploycluster)
-        # We need to find which extension and command it maps to
-        for namespace, ext in self.extensions.items():
-            for cmd_def in ext['definition']['commands']:
-                if 'legacy_command' in cmd_def and cmd_def['legacy_command'] == command:
-                    # Found a legacy command, execute it through the extension
-                    return ext['commands'].handle_command(cmd_def['name'], args)
+        # Special handling for connection commands to ensure state is saved
+        if result is not None and command == '/connection' and args and args[0] == 'create' and self.cli:
+            # After a connection is created, ensure it's saved to the CLI's state manager
+            print("Saving connection state after /connection create")
 
-        return None
+            # Get the connections from the connection manager
+            connections = self.connection_manager.get_connections()
+            current_id = self.connection_manager.get_current_connection_id()
+
+            # Update the CLI's state manager
+            if hasattr(self.cli, 'state_manager'):
+                connection_state = self.cli.state_manager.get_extension_state('connection')
+                if not connection_state:
+                    connection_state = {}
+
+                # Update connections in state
+                connection_state['connections'] = connections
+                connection_state['current_connection_id'] = current_id
+
+                # Save the updated state
+                self.cli.state_manager.set_extension_state('connection', connection_state)
+
+                # Force save to disk
+                self.cli.state_manager.save_to_disk()
+
+                print(f"Saved {len(connections)} connections to CLI's state manager")
+
+        return result
 
     def get_completions(self, text: str) -> List[Tuple[str, str]]:
         """Get completions that match the input text."""

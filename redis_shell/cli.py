@@ -176,48 +176,6 @@ class RedisCLI:
             self.connection_manager.add_connection('1', connection_info)
             self.connection_manager.set_current_connection_id('1')
 
-            # Save the default connection to state
-            connection_state = self.state_manager.get_extension_state('connection')
-            if not connection_state:
-                connection_state = {}
-
-            # Update connections in state
-            connection_state['connections'] = self.connection_manager.get_connections()
-            connection_state['current_connection_id'] = '1'
-
-            # Save the updated state
-            self.state_manager.set_extension_state('connection', connection_state)
-
-            # Force save to disk
-            self.state_manager.save_to_disk()
-
-        # On first login, ensure the current_connection_id matches the host-port pair
-        connections = self.connection_manager.get_connections()
-
-        for conn_id, conn_info in connections.items():
-            if conn_info['host'] == host and conn_info['port'] == port:
-                # Update the connection manager
-                self.connection_manager.set_current_connection_id(conn_id)
-
-                # Update the state manager
-                connection_state = self.state_manager.get_extension_state('connection')
-                if not connection_state:
-                    connection_state = {}
-
-                # Ensure connections dict exists in state
-                if 'connections' not in connection_state:
-                    connection_state['connections'] = connections
-
-                # Update current connection ID in state
-                connection_state['current_connection_id'] = conn_id
-
-                # Save the updated state
-                self.state_manager.set_extension_state('connection', connection_state)
-
-                # Force save to disk
-                self.state_manager.save_to_disk()
-                break
-
         # Get the current connection parameters
         self.host, self.port, db, password = self.connection_manager.get_connection_parameters()
 
@@ -239,10 +197,6 @@ class RedisCLI:
 
         # Create the prompt session with history
         self.session = PromptSession(completer=self.completer, history=self.history)
-
-    def update_connection_info(self):
-        """Update the host and port based on the current connection."""
-        self.host, self.port, _, _ = self.connection_manager.get_connection_parameters()
 
     def get_prompt(self):
         """Get the prompt string."""
@@ -353,12 +307,17 @@ Note: Commands starting with '/' are extension commands.
                 # Format: SWITCH_CONNECTION:host:port:db:password
                 parts = result.split(':')
                 if len(parts) >= 5:
-                    # Update connection info
-                    self.update_connection_info()
+                    host = parts[1]
+                    port = int(parts[2])
+                    # We don't need db and password here as the connection manager handles it
 
+                    # The connection manager has already been updated by the connection extension
+                    # Just update our local references
+                    self.redis = self.connection_manager.get_redis_client()
+                    self.host = host
+                    self.port = port
 
-
-                    return f"Switched to connection {self.host}:{self.port}"
+                    return f"Switched to connection {host}:{port}"
             return result
 
         return None

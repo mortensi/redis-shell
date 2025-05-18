@@ -65,9 +65,6 @@ class ConnectionManager:
     def set_current_connection_id(self, connection_id: str):
         """Set the current connection ID."""
         if connection_id in self._connections:
-            # Debugging log to verify when the current connection ID is set
-            logger.debug(f"Setting current connection ID to: {connection_id}")
-            logger.debug(f"Current connections: {self._connections}")
             self._current_connection_id = connection_id
             # Clear the Redis clients cache to force recreation
             self._redis_clients = {}
@@ -90,6 +87,7 @@ class ConnectionManager:
     def remove_connection(self, connection_id: str) -> bool:
         """Remove a connection."""
         if connection_id not in self._connections:
+            logger.debug("Connection not found in remove_connection")
             return False
 
         # Remove the connection

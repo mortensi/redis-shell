@@ -29,31 +29,31 @@ class ConfigCommands:
         parser.add_argument('--all', action='store_true', help='Get all configuration values')
         parser.add_argument('section', nargs='?', help='Configuration section')
         parser.add_argument('key', nargs='?', help='Configuration key')
-        
+
         try:
             parsed_args = parser.parse_args(args)
         except SystemExit:
             # Catch the SystemExit that argparse raises when --help is used
             return "Usage: /config get [--all] [section] [key]"
-        
+
         # Get all configuration
         if parsed_args.all:
             return self._format_config(config.get_all())
-        
+
         # Get a specific section
         if parsed_args.section and not parsed_args.key:
             section_config = config.get_section(parsed_args.section)
             if not section_config:
                 return f"Section '{parsed_args.section}' not found in configuration"
             return self._format_config({parsed_args.section: section_config})
-        
+
         # Get a specific key in a section
         if parsed_args.section and parsed_args.key:
             value = config.get(parsed_args.section, parsed_args.key)
             if value is None:
                 return f"Key '{parsed_args.key}' not found in section '{parsed_args.section}'"
             return f"{parsed_args.section}.{parsed_args.key} = {self._format_value(value)}"
-        
+
         # No arguments provided, show usage
         return "Usage: /config get [--all] [section] [key]"
 
@@ -63,19 +63,19 @@ class ConfigCommands:
         parser.add_argument('section', help='Configuration section')
         parser.add_argument('key', help='Configuration key')
         parser.add_argument('value', help='Configuration value')
-        
+
         try:
             parsed_args = parser.parse_args(args)
         except SystemExit:
             # Catch the SystemExit that argparse raises when --help is used
             return "Usage: /config set <section> <key> <value>"
-        
+
         # Parse the value (try to convert to appropriate type)
         value = self._parse_value(parsed_args.value)
-        
+
         # Set the configuration value
         config.set(parsed_args.section, parsed_args.key, value)
-        
+
         return f"Configuration value set: {parsed_args.section}.{parsed_args.key} = {self._format_value(value)}"
 
     def _save(self, args: list) -> str:
@@ -103,24 +103,24 @@ class ConfigCommands:
             return json.loads(value_str)
         except json.JSONDecodeError:
             pass
-        
+
         # Try to parse as boolean
         if value_str.lower() == 'true':
             return True
         if value_str.lower() == 'false':
             return False
-        
+
         # Try to parse as integer
         try:
             return int(value_str)
         except ValueError:
             pass
-        
+
         # Try to parse as float
         try:
             return float(value_str)
         except ValueError:
             pass
-        
+
         # Return as string
         return value_str

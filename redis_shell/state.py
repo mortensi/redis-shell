@@ -4,7 +4,23 @@ from typing import Dict, Any, Optional, List
 from pathlib import Path
 
 class StateManager:
+    """
+    Singleton class for managing state across all extensions.
+    Ensures all extensions have a consistent view of the state.
+    """
+    _instance = None
+
+    def __new__(cls):
+        if cls._instance is None:
+            cls._instance = super(StateManager, cls).__new__(cls)
+            cls._instance._initialized = False
+        return cls._instance
+
     def __init__(self):
+        # Skip initialization if already initialized
+        if getattr(self, '_initialized', False):
+            return
+
         # Get state file path from configuration if available
         try:
             from .config import config
@@ -28,6 +44,9 @@ class StateManager:
         if 'command_history' not in self._state:
             self._state['command_history'] = []
 
+        # Mark as initialized
+        self._initialized = True
+
     def _load_state(self) -> Dict[str, Any]:
         """Load state from file."""
         if os.path.exists(self.state_file):
@@ -37,6 +56,10 @@ class StateManager:
             except json.JSONDecodeError:
                 return {}
         return {}
+
+    def refresh_state(self):
+        """Refresh the state from disk."""
+        self._state = self._load_state()
 
     def _save_state(self):
         """Save state to file."""
@@ -48,8 +71,17 @@ class StateManager:
         with open(self.state_file, 'w') as f:
             json.dump(self._state, f, indent=2)
 
+        f.close()
+
     def get_extension_state(self, extension: str) -> Dict[str, Any]:
-        """Get state for an extension."""
+        """
+        Get state for an extension.
+
+        This method refreshes the state from disk before reading to ensure
+        we always have the latest state.
+        """
+        # Refresh state from disk before reading
+        self.refresh_state()
         return self._state.get(extension, {})
 
     def set_extension_state(self, extension: str, state: Dict[str, Any]):
