@@ -299,6 +299,15 @@ Note: Commands starting with '/' are extension commands.
                     help_text += f"  {cmd['usage']} - {cmd['description']}\n"
             return help_text
 
+        # Check if this is a valid extension command
+        if command.startswith('/') and command not in ['/clear', '/exit', '/help', '/history']:
+            # Extract the extension name (without the leading slash)
+            extension_name = command
+
+            # Check if the extension exists
+            if extension_name not in self.extension_manager.extensions:
+                return f"(error) unknown extension command '{command}'"
+
         # Check if this is an extension command
         result = self.extension_manager.handle_command(command, args)
         if result is not None:
