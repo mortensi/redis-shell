@@ -125,10 +125,17 @@ class ConnectionManager:
 
         # Get connection info
         conn_info = self._connections[connection_id]
-        host = conn_info.get('host', 'localhost')
+        host = conn_info.get('host', '127.0.0.1')
         port = conn_info.get('port', 6379)
         db = conn_info.get('db', 0)
-        password = conn_info.get('password')
+        username = conn_info.get('username', 'default')
+        password = conn_info.get('password', '')
+        ssl = conn_info.get('ssl', False)
+        ssl_ca_certs = conn_info.get('ssl_ca_certs')
+        ssl_ca_path = conn_info.get('ssl_ca_path')
+        ssl_keyfile = conn_info.get('ssl_keyfile')
+        ssl_certfile = conn_info.get('ssl_certfile')
+        ssl_cert_reqs = conn_info.get('ssl_cert_reqs', 'required')
 
         # Create a standard Redis client to check if it's a cluster
         try:
@@ -136,7 +143,14 @@ class ConnectionManager:
                 host=host,
                 port=port,
                 db=db,
+                username=username,
                 password=password,
+                ssl=ssl,
+                ssl_ca_certs=ssl_ca_certs,
+                ssl_ca_path=ssl_ca_path,
+                ssl_keyfile=ssl_keyfile,
+                ssl_certfile=ssl_certfile,
+                ssl_cert_reqs=ssl_cert_reqs,
                 decode_responses=False
             )
 
@@ -189,7 +203,14 @@ class ConnectionManager:
                     client = RedisCluster(
                         host=first_node['host'],
                         port=first_node['port'],
+                        username=username,
                         password=password,
+                        ssl=ssl,
+                        ssl_ca_certs=ssl_ca_certs,
+                        ssl_ca_path=ssl_ca_path,
+                        ssl_keyfile=ssl_keyfile,
+                        ssl_certfile=ssl_certfile,
+                        ssl_cert_reqs=ssl_cert_reqs,
                         decode_responses=False
                     )
                     logger.debug("Successfully created RedisCluster client")
@@ -215,7 +236,14 @@ class ConnectionManager:
                 host=host,
                 port=port,
                 db=db,
+                username=username,
                 password=password,
+                ssl=ssl,
+                ssl_ca_certs=ssl_ca_certs,
+                ssl_ca_path=ssl_ca_path,
+                ssl_keyfile=ssl_keyfile,
+                ssl_certfile=ssl_certfile,
+                ssl_cert_reqs=ssl_cert_reqs,
                 decode_responses=False
             )
 
@@ -233,6 +261,25 @@ class ConnectionManager:
             # If there's an error creating the client, return None
             return None
 
+    def get_connection_host_port(self, connection_id: Optional[str] = None) -> Tuple[str, int]:
+        """
+        Get just the host and port for a specific connection ID or the current connection.
+
+        Returns:
+            Tuple[str, int]: (host, port)
+        """
+        if connection_id is None:
+            connection_id = self._current_connection_id
+
+        if connection_id is None or connection_id not in self._connections:
+            return ('127.0.0.1', 6379)
+
+        conn_info = self._connections[connection_id]
+        host = conn_info.get('host', '127.0.0.1')
+        port = conn_info.get('port', 6379)
+
+        return (host, port)
+
     def get_connection_parameters(self, connection_id: Optional[str] = None) -> Tuple[str, int, int, Optional[str]]:
         """
         Get connection parameters (host, port, db, password) for a specific connection ID or the current connection.
@@ -244,13 +291,13 @@ class ConnectionManager:
             connection_id = self._current_connection_id
 
         if connection_id is None or connection_id not in self._connections:
-            return ('localhost', 6379, 0, None)
+            return ('127.0.0.1', 6379, 0, None)
 
         conn_info = self._connections[connection_id]
-        host = conn_info.get('host', 'localhost')
+        host = conn_info.get('host', '127.0.0.1')
         port = conn_info.get('port', 6379)
         db = conn_info.get('db', 0)
-        password = conn_info.get('password')
+        password = conn_info.get('password', '')
 
         return (host, port, db, password)
 

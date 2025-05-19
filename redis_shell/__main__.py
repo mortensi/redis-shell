@@ -18,21 +18,37 @@ from .config import config as app_config
 @click.option('--host', '-h', default=None, help='Redis host')
 @click.option('--port', '-p', default=None, type=int, help='Redis port')
 @click.option('--db', '-n', default=None, type=int, help='Redis database number')
+@click.option('--username', '-u', default=None, help='Redis username')
 @click.option('--password', '-a', default=None, help='Redis password')
 @click.option('--config-file', '-c', default=None, help='Path to configuration file')
 @click.option('--log-level', '-l', default=None, help='Log level (debug, info, warning, error, critical)')
 @click.option('--log-file', '-f', default=None, help='Path to log file')
 @click.option('--command', '-x', default=None, help='Command to execute')
+@click.option('--ssl', is_flag=True, help='Enable SSL/TLS connection')
+@click.option('--ssl-ca-certs', default=None, help='Path to CA certificate file')
+@click.option('--ssl-ca-path', default=None, help='Path to CA certificates directory')
+@click.option('--ssl-keyfile', default=None, help='Path to private key file')
+@click.option('--ssl-certfile', default=None, help='Path to certificate file')
+@click.option('--ssl-cert-reqs', default=None,
+              type=click.Choice(['none', 'optional', 'required']),
+              help='Certificate requirements (none, optional, required)')
 @click.option('--version', '-v', is_flag=True, help='Show version and exit')
 def main(
     host: Optional[str],
     port: Optional[int],
     db: Optional[int],
+    username: Optional[str],
     password: Optional[str],
     config_file: Optional[str],
     log_level: Optional[str],
     log_file: Optional[str],
     command: Optional[str],
+    ssl: bool,
+    ssl_ca_certs: Optional[str],
+    ssl_ca_path: Optional[str],
+    ssl_keyfile: Optional[str],
+    ssl_certfile: Optional[str],
+    ssl_cert_reqs: Optional[str],
     version: bool
 ):
     """Redis Shell - Interactive Redis CLI with extensions."""
@@ -67,16 +83,52 @@ def main(
         app_config.set('redis', 'default_port', port)
     if db:
         app_config.set('redis', 'default_db', db)
+    if username:
+        app_config.set('redis', 'default_username', username)
     if password:
         app_config.set('redis', 'default_password', password)
 
-    host = app_config.get('redis', 'default_host', 'localhost')
+    # Set SSL parameters if provided
+    if ssl:
+        app_config.set('redis', 'ssl', ssl)
+    if ssl_ca_certs:
+        app_config.set('redis', 'ssl_ca_certs', ssl_ca_certs)
+    if ssl_ca_path:
+        app_config.set('redis', 'ssl_ca_path', ssl_ca_path)
+    if ssl_keyfile:
+        app_config.set('redis', 'ssl_keyfile', ssl_keyfile)
+    if ssl_certfile:
+        app_config.set('redis', 'ssl_certfile', ssl_certfile)
+    if ssl_cert_reqs:
+        app_config.set('redis', 'ssl_cert_reqs', ssl_cert_reqs)
+
+    # Get all connection parameters from config
+    host = app_config.get('redis', 'default_host', '127.0.0.1')
     port = app_config.get('redis', 'default_port', 6379)
     db = app_config.get('redis', 'default_db', 0)
-    password = app_config.get('redis', 'default_password')
+    username = app_config.get('redis', 'default_username', 'default')
+    password = app_config.get('redis', 'default_password', '')
+    use_ssl = app_config.get('redis', 'ssl', False)
+    ssl_ca_certs = app_config.get('redis', 'ssl_ca_certs')
+    ssl_ca_path = app_config.get('redis', 'ssl_ca_path')
+    ssl_keyfile = app_config.get('redis', 'ssl_keyfile')
+    ssl_certfile = app_config.get('redis', 'ssl_certfile')
+    ssl_cert_reqs = app_config.get('redis', 'ssl_cert_reqs', 'required')
 
-    # Create the CLI
-    cli = RedisCLI(host=host, port=port, db=db, password=password)
+    # Create the CLI with all connection parameters
+    cli = RedisCLI(
+        host=host,
+        port=port,
+        db=db,
+        username=username,
+        password=password,
+        ssl=use_ssl,
+        ssl_ca_certs=ssl_ca_certs,
+        ssl_ca_path=ssl_ca_path,
+        ssl_keyfile=ssl_keyfile,
+        ssl_certfile=ssl_certfile,
+        ssl_cert_reqs=ssl_cert_reqs
+    )
 
     # Execute a command and exit
     if command:

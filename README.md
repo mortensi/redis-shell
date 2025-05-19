@@ -35,7 +35,7 @@ uv pip install pex
 
 pex . \
 >   -D . \
->   -e redis_shell.cli:main \
+>   -e redis_shell.__main__:main \
 >   -o redis-shell.pex \
 >   --compile \
 >   --venv
@@ -53,7 +53,13 @@ redis-shell [OPTIONS]
 Options:
 - `-h, --host TEXT`: Redis host (default: localhost)
 - `-p, --port INTEGER`: Redis port (default: 6379)
-- `-d, --db INTEGER`: Redis database number (default: 0)
+- `-n, --db INTEGER`: Redis database number (default: 0)
+- `-a, --password TEXT`: Redis password
+- `-c, --config-file TEXT`: Path to configuration file
+- `-l, --log-level TEXT`: Log level (debug, info, warning, error, critical)
+- `-f, --log-file TEXT`: Path to log file
+- `-x, --command TEXT`: Command to execute
+- `-v, --version`: Show version and exit
 
 ### Shell Commands
 

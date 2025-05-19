@@ -31,7 +31,7 @@ Homepage = "https://github.com/mortensi/redis-shell"
 Repository = "https://github.com/mortensi/redis-shell.git"
 
 [project.scripts]
-redis-shell = "redis_shell.cli:main"
+redis-shell = "redis_shell.__main__:main"
 
 [build-system]
 requires = ["hatchling"]

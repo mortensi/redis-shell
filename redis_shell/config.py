@@ -18,14 +18,19 @@ DEFAULT_CONFIG = {
 
     # Redis connection settings
     "redis": {
-        "default_host": "localhost",
+        "default_host": "127.0.0.1",
         "default_port": 6379,
         "default_db": 0,
-        "default_password": None,
+        "default_username": "default",
+        "default_password": "",
         "timeout": 5,
         "decode_responses": False,
         "ssl": False,
-        "ssl_ca_certs": None
+        "ssl_ca_certs": None,
+        "ssl_ca_path": None,
+        "ssl_keyfile": None,
+        "ssl_certfile": None,
+        "ssl_cert_reqs": "required"
     },
 
     # Extension settings

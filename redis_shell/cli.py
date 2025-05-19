@@ -158,7 +158,11 @@ class RedisCompleter(Completer):
         # TODO: Add Redis commands autocompletion in the future
 
 class RedisCLI:
-    def __init__(self, host: str = 'localhost', port: int = 6379, db: int = 0, password: Optional[str] = None):
+    def __init__(self, host: str = '127.0.0.1', port: int = 6379, db: int = 0,
+                 username: Optional[str] = 'default', password: Optional[str] = '',
+                 ssl: bool = False, ssl_ca_certs: Optional[str] = None,
+                 ssl_ca_path: Optional[str] = None, ssl_keyfile: Optional[str] = None,
+                 ssl_certfile: Optional[str] = None, ssl_cert_reqs: str = 'required'):
         # Initialize the connection manager
         self.connection_manager = ConnectionManager()
 
@@ -171,18 +175,38 @@ class RedisCLI:
                 'host': host,
                 'port': port,
                 'db': db,
-                'password': password
+                'username': username,
+                'password': password,
+                'ssl': ssl,
+                'ssl_ca_certs': ssl_ca_certs,
+                'ssl_ca_path': ssl_ca_path,
+                'ssl_keyfile': ssl_keyfile,
+                'ssl_certfile': ssl_certfile,
+                'ssl_cert_reqs': ssl_cert_reqs
             }
             self.connection_manager.add_connection('1', connection_info)
             self.connection_manager.set_current_connection_id('1')
 
         # Get the current connection parameters
-        self.host, self.port, db, password = self.connection_manager.get_connection_parameters()
+        self.host, self.port = self.connection_manager.get_connection_host_port()
 
         # Get or create the Redis client
         self.redis = self.connection_manager.get_redis_client()
         if not self.redis:
-            self.redis = redis.Redis(host=self.host, port=self.port, db=db, password=password)
+            # Create Redis client with all parameters
+            self.redis = redis.Redis(
+                host=self.host,
+                port=self.port,
+                db=db,
+                username=username,
+                password=password,
+                ssl=ssl,
+                ssl_ca_certs=ssl_ca_certs,
+                ssl_ca_path=ssl_ca_path,
+                ssl_keyfile=ssl_keyfile,
+                ssl_certfile=ssl_certfile,
+                ssl_cert_reqs=ssl_cert_reqs
+            )
 
         self.style = Style.from_dict({
             'prompt': '#00ff00 bold',
@@ -288,6 +312,19 @@ Available commands:
   /history - Show command history
              Use '/history clear' to clear history
              Use '/history <number>' to run a specific command from history
+
+Connection options:
+  --host, -h          - Redis host (default: 127.0.0.1)
+  --port, -p          - Redis port (default: 6379)
+  --db, -n            - Redis database number (default: 0)
+  --username, -u      - Redis username (default: default)
+  --password, -a      - Redis password (default: "")
+  --ssl               - Enable SSL/TLS connection (default: False)
+  --ssl-ca-certs      - Path to CA certificate file
+  --ssl-ca-path       - Path to CA certificates directory
+  --ssl-keyfile       - Path to private key file
+  --ssl-certfile      - Path to certificate file
+  --ssl-cert-reqs     - Certificate requirements (none, optional, required)
 
 Note: Commands starting with '/' are extension commands.
       All other commands are passed directly to Redis.
