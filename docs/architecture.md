@@ -4,9 +4,10 @@
 
 1. `main.py`: Entry point that processes command-line arguments and initializes the CLI.
 2. `RedisCLI`: Main class that handles user input, command processing, and interactive shell functionality.
-3. `StateManager` (Singleton): Manages persistent state across sessions, including command history and extension-specific state.
-4. `ConnectionManager (Singleton)`: Manages Redis connections, detects cluster configurations, and provides Redis clients to other components.
-5. `ExtensionManager`: Loads and manages extensions from built-in, system, and user directories.
+3. `Config (Singleton)`: Manages application configuration, including loading from and saving to a configuration file. Provides methods to get and set configuration values.
+4. `StateManager` (Singleton): Manages persistent state across sessions, including command history and extension-specific state.
+5. `ConnectionManager (Singleton)`: Manages Redis connections, detects cluster configurations, and provides Redis clients to other components.
+6. `ExtensionManager`: Loads and manages extensions from built-in, system, and user directories.
 
 ## Extensions System
 Redis-Shell has a modular extension system with:
@@ -62,64 +63,64 @@ This architecture allows for a modular, extensible CLI that can be easily enhanc
 |                 RedisCLI                    |
 | (Main CLI class that handles user input)    |
 +---------------------------------------------+
-          |           |           |
-          v           v           v
-+----------------+  +----------------+  +----------------+
-| StateManager   |  | ConnectionMgr  |  | ExtensionMgr   |
-| (Singleton)    |  | (Singleton)    |  | (Loads/manages |
-| (Manages state |  | (Manages Redis |  |  extensions)   |
-|  persistence)  |  |  connections)  |  |                |
-+----------------+  +----------------+  +----------------+
-          ^                 ^                   |
-          |                 |                   |
-          +-----------------+                   |
-                 |                              |
-                 |          +-------------------+
-                 |          |
-                 v          v
-    +----------------------------------+
-    |           Extensions             |
-    |  +----------------------------+  |
-    |  | Built-in Extensions        |  |
-    |  | +-----------------------+  |  |
-    |  | | /connection           |  |  |
-    |  | | (Connection manager)  |  |  |
-    |  | +-----------------------+  |  |
-    |  | +-----------------------+  |  |
-    |  | | /data                 |  |  |
-    |  | | (Data import/export)  |  |  |
-    |  | +-----------------------+  |  |
-    |  | +-----------------------+  |  |
-    |  | | /cluster              |  |  |
-    |  | | (Cluster management)  |  |  |
-    |  | +-----------------------+  |  |
-    |  | +-----------------------+  |  |
-    |  | | /config               |  |  |
-    |  | | (Config management)   |  |  |
-    |  | +-----------------------+  |  |
-    |  | +-----------------------+  |  |
-    |  | | /sentinel             |  |  |
-    |  | | (Sentinel management) |  |  |
-    |  | +-----------------------+  |  |
-    |  +----------------------------+  |
-    |                                  |
-    |  +----------------------------+  |
-    |  | External Extensions        |  |
-    |  | (Loaded from system and    |  |
-    |  |  user extension dirs)      |  |
-    |  +----------------------------+  |
-    +----------------------------------+
-                 |
-                 v
-    +----------------------------------+
-    |           Redis Client           |
-    | (Connects to Redis instances)    |
-    +----------------------------------+
-                 |
-                 v
-    +----------------------------------+
-    |           Redis Server           |
-    | (Local or remote Redis instance) |
-    +----------------------------------+
+          |           |           |           |
+          v           v           v           v
++----------------+  +----------------+  +----------------+  +----------------+
+| Config         |  | StateManager   |  | ConnectionMgr  |  | ExtensionMgr   |
+| (Singleton)    |  | (Singleton)    |  | (Singleton)    |  | (Loads/manages |
+| (Manages app   |  | (Manages state |  | (Manages Redis |  |  extensions)   |
+| configuration) |  |  persistence)  |  |  connections)  |  |                |
++----------------+  +----------------+  +----------------+  +----------------+
+       ^  ^                ^                   ^                   |
+       |  |                |                   |                   |
+       |  +----------------+-------------------+                   |
+       |                   |                                       |
+       |                   |                +----------------------+
+       |                   |                |
+       |                   v                v
+       |        +----------------------------------+
+       |        |           Extensions             |
+       |        |  +----------------------------+  |
+       |        |  | Built-in Extensions        |  |
+       |        |  | +-----------------------+  |  |
+       |        |  | | /connection           |  |  |
+       |        |  | | (Connection manager)  |  |  |
+       |        |  | +-----------------------+  |  |
+       |        |  | +-----------------------+  |  |
+       |        |  | | /data                 |  |  |
+       |        |  | | (Data import/export)  |  |  |
+       |        |  | +-----------------------+  |  |
+       |        |  | +-----------------------+  |  |
+       |        |  | | /cluster              |  |  |
+       |        |  | | (Cluster management)  |  |  |
+       |        |  | +-----------------------+  |  |
+       +------->|  | +-----------------------+  |  |
+                |  | | /config               |  |  |
+                |  | | (Config management)   |  |  |
+                |  | +-----------------------+  |  |
+                |  | +-----------------------+  |  |
+                |  | | /sentinel             |  |  |
+                |  | | (Sentinel management) |  |  |
+                |  | +-----------------------+  |  |
+                |  +----------------------------+  |
+                |                                  |
+                |  +----------------------------+  |
+                |  | External Extensions        |  |
+                |  | (Loaded from system and    |  |
+                |  |  user extension dirs)      |  |
+                |  +----------------------------+  |
+                +----------------------------------+
+                                 |
+                                 v
+                +----------------------------------+
+                |           Redis Client           |
+                | (Connects to Redis instances)    |
+                +----------------------------------+
+                                 |
+                                 v
+                +----------------------------------+
+                |           Redis Server           |
+                | (Local or remote Redis instance) |
+                +----------------------------------+
 ```
 
