@@ -11,7 +11,7 @@ sentinel_module = importlib.util.module_from_spec(spec)
 spec.loader.exec_module(sentinel_module)
 SentinelDeployer = sentinel_module.SentinelDeployer
 
-from redis_shell.state import StateManager
+from redis_shell.state_manager import StateManager
 
 class SentinelCommands:
     def __init__(self):

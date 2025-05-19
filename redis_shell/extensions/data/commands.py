@@ -9,7 +9,7 @@ import datetime
 import base64
 import json
 import logging
-from redis_shell.state import StateManager
+from redis_shell.state_manager import StateManager
 from redis_shell.connection_manager import ConnectionManager
 from redis_shell.utils.file_utils import PathHandler
 from redis_shell.utils.completion_utils import completion_registry

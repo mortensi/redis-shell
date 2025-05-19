@@ -6,7 +6,7 @@ Test script to verify that the StateManager is working correctly as a singleton.
 import os
 import tempfile
 import json
-from redis_shell.state import StateManager
+from redis_shell.state_manager import StateManager
 
 def test_singleton_behavior():
     """Test that multiple instances of StateManager are the same object."""

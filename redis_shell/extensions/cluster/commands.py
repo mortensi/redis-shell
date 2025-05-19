@@ -12,7 +12,7 @@ cluster_module = importlib.util.module_from_spec(spec)
 spec.loader.exec_module(cluster_module)
 ClusterDeployer = cluster_module.ClusterDeployer
 
-from redis_shell.state import StateManager
+from redis_shell.state_manager import StateManager
 
 class ClusterCommands:
     def __init__(self, cli=None):

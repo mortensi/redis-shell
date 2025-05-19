@@ -2,7 +2,7 @@ import redis
 from typing import Optional, Dict, Any, List
 import argparse
 import socket
-from redis_shell.state import StateManager
+from redis_shell.state_manager import StateManager
 from redis_shell.connection_manager import ConnectionManager
 import logging
 

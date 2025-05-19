@@ -17,7 +17,7 @@ import sys
 sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
 
 from redis_shell.config import Config
-from redis_shell.state import StateManager
+from redis_shell.state_manager import StateManager
 from redis_shell.connection_manager import ConnectionManager
 from redis_shell.extensions import ExtensionManager
 
@@ -57,14 +57,14 @@ def mock_config():
                 "info_style": "blue"
             }
         }, f)
-    
+
     # Create a Config instance with the temporary file
     config = Config()
     config.config_file = config_file
     config._load_config()
-    
+
     yield config
-    
+
     # Clean up
     os.unlink(config_file)
 
@@ -87,14 +87,14 @@ def mock_state():
             },
             "current_connection_id": "1"
         }, f)
-    
+
     # Create a StateManager instance with the temporary file
     state = StateManager()
     state._state_file = state_file
     state._load_state()
-    
+
     yield state
-    
+
     # Clean up
     os.unlink(state_file)
 
@@ -104,7 +104,7 @@ def mock_redis():
     """Fixture for a mock Redis server."""
     server = fakeredis.FakeServer()
     client = fakeredis.FakeRedis(server=server)
-    
+
     # Add some test data
     client.set('key1', 'value1')
     client.set('key2', 'value2')
@@ -113,7 +113,7 @@ def mock_redis():
     client.lpush('list1', 'item1', 'item2', 'item3')
     client.sadd('set1', 'member1', 'member2', 'member3')
     client.zadd('zset1', {'member1': 1, 'member2': 2, 'member3': 3})
-    
+
     yield client
 
 
@@ -122,7 +122,7 @@ def mock_connection_manager(mock_redis):
     """Fixture for a mock connection manager."""
     # Create a ConnectionManager instance
     connection_manager = ConnectionManager()
-    
+
     # Add a test connection
     connection_manager.add_connection('1', {
         'host': 'localhost',
@@ -130,13 +130,13 @@ def mock_connection_manager(mock_redis):
         'db': 0,
         'password': None
     })
-    
+
     # Set the current connection
     connection_manager.set_current_connection_id('1')
-    
+
     # Mock the get_redis_client method to return the mock Redis client
     connection_manager.get_redis_client = lambda: mock_redis
-    
+
     yield connection_manager
 
 
@@ -145,7 +145,7 @@ def mock_extension_manager(mock_connection_manager):
     """Fixture for a mock extension manager."""
     # Create an ExtensionManager instance
     extension_manager = ExtensionManager()
-    
+
     # Mock the extensions
     extension_manager.extensions = {
         '/data': {
@@ -195,5 +195,5 @@ def mock_extension_manager(mock_connection_manager):
             'commands': None
         }
     }
-    
+
     yield extension_manager

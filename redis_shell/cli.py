@@ -8,9 +8,9 @@ from prompt_toolkit.shortcuts import clear
 from prompt_toolkit.styles import Style
 from prompt_toolkit.completion import Completer, Completion
 from prompt_toolkit.history import InMemoryHistory
-from .extensions import ExtensionManager
+from .extension_manager import ExtensionManager
 from .connection_manager import ConnectionManager
-from .state import StateManager
+from .state_manager import StateManager
 
 class RedisCompleter(Completer):
     """Completer for Redis commands"""
