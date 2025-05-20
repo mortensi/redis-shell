@@ -154,6 +154,12 @@ def main(
 
     # Start the interactive shell
     try:
+        # Display welcome message
+        from . import __version__
+        click.echo(f"Welcome to Redis Shell v{__version__}")
+        click.echo("Connected to Redis. Type '/help' for available commands.")
+        click.echo("Commands starting with '/' are shell commands, all other commands are passed directly to Redis.")
+
         cli.start_interactive()
     except KeyboardInterrupt:
         click.echo("\nExiting...")

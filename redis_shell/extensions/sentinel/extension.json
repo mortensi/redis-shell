@@ -8,35 +8,30 @@
             "name": "deploy",
             "description": "Deploy a new Redis Sentinel setup with master and replicas.",
             "usage": "/sentinel deploy",
-            "legacy_command": "deploysentinel",
             "options": []
         },
         {
             "name": "info",
             "description": "Get information about the Sentinel setup.",
             "usage": "/sentinel info",
-            "legacy_command": "sentinelinfo",
             "options": []
         },
         {
             "name": "remove",
             "description": "Remove the Sentinel setup and clean up.",
             "usage": "/sentinel remove",
-            "legacy_command": "removesentinel",
             "options": []
         },
         {
             "name": "stop",
             "description": "Stop the Sentinel setup without cleaning up data.",
             "usage": "/sentinel stop",
-            "legacy_command": "stopsentinel",
             "options": []
         },
         {
             "name": "start",
             "description": "Start the Sentinel setup without losing data.",
             "usage": "/sentinel start",
-            "legacy_command": "startsentinel",
             "options": []
         }
     ],

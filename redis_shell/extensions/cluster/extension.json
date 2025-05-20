@@ -8,7 +8,6 @@
             "name": "deploy",
             "description": "Deploy a new Redis cluster.",
             "usage": "/cluster deploy",
-            "legacy_command": "deploycluster",
             "options": []
         },
 
@@ -16,28 +15,24 @@
             "name": "info",
             "description": "Get information about the cluster.",
             "usage": "/cluster info",
-            "legacy_command": "clusterinfo",
             "options": []
         },
         {
             "name": "remove",
             "description": "Remove the cluster and clean up.",
             "usage": "/cluster remove",
-            "legacy_command": "removecluster",
             "options": []
         },
         {
             "name": "stop",
             "description": "Stop the cluster without cleaning up data.",
             "usage": "/cluster stop",
-            "legacy_command": "stopcluster",
             "options": []
         },
         {
             "name": "start",
             "description": "Start the cluster without losing data.",
             "usage": "/cluster start",
-            "legacy_command": "startcluster",
             "options": []
         }
     ],

@@ -131,9 +131,6 @@ class ExtensionManager:
                         # Add both the namespaced command and any legacy direct commands
                         self.available_commands.append(f"{definition['namespace']} {cmd['name']}")
 
-                        # Some extensions might define legacy direct commands (without namespace)
-                        if 'legacy_command' in cmd:
-                            self.available_commands.append(cmd['legacy_command'])
         except Exception as e:
             print(f"Error loading {ext_type} extension {name}: {str(e)}")
 
@@ -144,17 +141,6 @@ class ExtensionManager:
         # Check if this is a direct namespace command (e.g., /cluster)
         if command in self.extensions:
             result = self.extensions[command]['commands'].handle_command(args[0], args[1:])
-        else:
-            # Check if this is a legacy command (e.g., deploycluster)
-            # We need to find which extension and command it maps to
-            for namespace, ext in self.extensions.items():
-                for cmd_def in ext['definition']['commands']:
-                    if 'legacy_command' in cmd_def and cmd_def['legacy_command'] == command:
-                        # Found a legacy command, execute it through the extension
-                        result = ext['commands'].handle_command(cmd_def['name'], args)
-                        break
-                if result is not None:
-                    break
 
         # Special handling for connection commands to ensure state is saved
         if result is not None and command == '/connection' and args and args[0] == 'create' and self.cli:
