@@ -54,3 +54,6 @@ build/
 redis-export*
 *.conf
 *.rdb
+
+# Ignore pex files
+*.pex
