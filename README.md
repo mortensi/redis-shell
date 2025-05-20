@@ -2,6 +2,19 @@
 
 An enhanced Redis CLI shell built with Python, providing a unified interface for both Redis commands and extension commands.
 
+## Building
+
+You can build the executable using `npx`
+
+```
+uv pip install pex
+
+pex . -D . -e redis_shell.__main__:main -o redis-shell.pex --venv --strip-pex-env --no-compile --no-wheel --compres
+```
+
+and launch it as `./redis-shell.pex`
+
+
 ## Installation
 
 ### For Users
@@ -26,17 +39,6 @@ source .venv/bin/activate  # On Windows: .venv\Scripts\activate
 uv pip install -e .
 ```
 
-## Building
-
-You can build the executable using `npx`
-
-```
-uv pip install pex
-
-pex . -D . -e redis_shell.__main__:main -o redis-shell.pex --venv --strip-pex-env --no-compile --no-wheel
-```
-
-and launch it as `./redis-shell.pex`
 
 ## Usage
 
