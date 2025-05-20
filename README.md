@@ -9,7 +9,7 @@ You can build and use the executable using `npx`. From a virtual environment:
 ```
 uv pip install pex
 
-pex . -D . -e redis_shell.__main__:main -o redis-shell.pex --venv --strip-pex-env --no-compile --no-wheel --compres
+pex . -D . -e redis_shell.__main__:main -o redis-shell.pex --venv --strip-pex-env --no-compile --no-wheel --compress
 ```
 
 and launch it as `./redis-shell.pex`
