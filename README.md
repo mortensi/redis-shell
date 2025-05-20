@@ -2,9 +2,9 @@
 
 An enhanced Redis CLI shell built with Python, providing a unified interface for both Redis commands and extension commands.
 
-## Building
+## Installation for Users
 
-You can build the executable using `npx`
+You can build and use the executable using `npx`. From a virtual environment:
 
 ```
 uv pip install pex
@@ -15,20 +15,8 @@ pex . -D . -e redis_shell.__main__:main -o redis-shell.pex --venv --strip-pex-en
 and launch it as `./redis-shell.pex`
 
 
-## Installation
+## Installation for Developers
 
-### For Users
-Simply install the package using pip:
-```bash
-pip install redis-shell
-```
-
-Or with uv (recommended):
-```bash
-uv pip install redis-shell
-```
-
-### For Developers
 If you want to contribute or modify the code:
 
 1. Clone this repository
@@ -39,10 +27,13 @@ source .venv/bin/activate  # On Windows: .venv\Scripts\activate
 uv pip install -e .
 ```
 
+Now you can run it as `redis-shell`
+
 
 ## Usage
 
-Start the Redis shell:
+Start the Redis Shell:
+
 ```bash
 redis-shell [OPTIONS]
 ```
@@ -84,6 +75,7 @@ redis-shell [OPTIONS]
 
 ### Configuration File Locations
 Redis Shell looks for configuration files in the following locations (in order):
+
 1. Path specified by `REDIS_SHELL_CONFIG` environment variable
 2. `~/.redis-shell`
 3. `~/.config/redis-shell/config.json`
@@ -116,13 +108,13 @@ Press `Tab` to show available commands and their descriptions. The shell provide
 redis-shell
 
 # Direct Redis commands
-redis> SET mykey "Hello World"
+localhost:6379> SET mykey "Hello World"
 OK
-redis> GET mykey
+localhost:6379> GET mykey
 "Hello World"
 
 # Hash operations
-redis> HSET user:1 name "John" age "30"
+localhost:6379> HSET user:1 name "John" age "30"
 (integer) 2
 redis> HGETALL user:1
 1) "name"
@@ -131,7 +123,7 @@ redis> HGETALL user:1
 4) "30"
 
 # View command history
-redis> /history
+localhost:6379> /history
 Command history:
   1: SET mykey "Hello World"
   2: GET mykey
@@ -139,7 +131,7 @@ Command history:
   4: HGETALL user:1
 
 # Run a command from history by its number
-redis> /history 2
+localhost:6379> /history 2
 Running command: GET mykey
 Executed: GET mykey
 "Hello World"
