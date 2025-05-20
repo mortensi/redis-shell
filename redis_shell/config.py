@@ -35,8 +35,7 @@ DEFAULT_CONFIG = {
 
     # Extension settings
     "extensions": {
-        "extension_dir": "~/.redis-shell/extensions",
-        "system_extension_dir": "./extensions"
+        "extension_dir": "~/.config/redis-shell/extensions"
     },
 
     # UI settings

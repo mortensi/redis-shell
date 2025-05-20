@@ -258,7 +258,6 @@ class RedisCLI:
                     return f'Invalid history index: {index}. Valid range is 1-{len(history)}.'
 
                 # Get the command from history
-                print(history)
                 cmd = history[index - 1]
                 print(f"Running command: {cmd}")
 
