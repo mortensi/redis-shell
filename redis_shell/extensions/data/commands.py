@@ -1,6 +1,4 @@
-from typing import Optional, Dict, Any, List, Union
-import redis
-from redis.cluster import RedisCluster
+from typing import Optional
 import argparse
 import os
 import glob
@@ -13,7 +11,6 @@ from redis_shell.state_manager import StateManager
 from redis_shell.connection_manager import ConnectionManager
 from redis_shell.utils.file_utils import PathHandler
 from redis_shell.utils.completion_utils import completion_registry
-from redis_shell.utils.redis_utils import RedisConnectionHelper
 
 logger = logging.getLogger(__name__)
 
@@ -251,119 +248,30 @@ class DataCommands:
     def _export_thread_func(self, pattern: str, folder: str, force_keys: bool = False):
         """Thread function for exporting data."""
         try:
-            # Get the current Redis connection from the connection manager
-            current_conn_id = self._connection_manager.get_current_connection_id()
-            print(f"Current connection ID from connection manager: {current_conn_id}")
+            # Get the current Redis client from the connection manager
+            r = self._connection_manager.get_redis_client()
 
-            redis_client = self._connection_manager.get_redis_client()
-
-            if redis_client:
-                # Get connection parameters from the connection manager
-                host, port, db, password = self._connection_manager.get_connection_parameters()
+            if not r:
+                # Fall back to CLI connection if connection manager doesn't have a connection
+                # This is for backward compatibility
+                if self._cli and hasattr(self._cli, 'redis'):
+                    r = self._cli.redis
+                    print(f"Using current Redis connection from CLI: {self._cli.host}:{self._cli.port}")
+                else:
+                    # No connection available, return an error
+                    self._export_status = "Error: No active Redis connection available. Please create a connection first with /connection create."
+                    print(self._export_status)
+                    self._current_operation = None
+                    return
+            else:
+                # Get connection parameters from the connection manager for logging purposes
+                host, port, db, _ = self._connection_manager.get_connection_parameters()
                 # Check if this is a cluster connection
                 is_cluster = self._connection_manager.is_cluster_connection()
                 if is_cluster:
-                    print(f"Using current Redis Cluster connection from connection manager: {host}:{port}")
+                    print(f"Using current Redis Cluster connection: {host}:{port}")
                 else:
-                    print(f"Using current Redis connection from connection manager: {host}:{port} (db: {db})")
-            elif self._cli and hasattr(self._cli, 'redis'):
-                # Fall back to CLI connection if connection manager doesn't have a connection
-                # This is for backward compatibility
-                host = self._cli.host
-                port = self._cli.port
-                db = self._cli.redis.connection_pool.connection_kwargs.get('db', 0)
-                password = self._cli.redis.connection_pool.connection_kwargs.get('password', None)
-                print(f"Using current Redis connection from CLI: {host}:{port} (db: {db})")
-            else:
-                # Fall back to default connection if no connection is available
-                host = 'localhost'
-                port = 6379
-                db = 0
-                password = None
-                print("No active connection available, using default connection: localhost:6379")
-
-            try:
-                # If we already have a Redis client from the connection manager, use it
-                if redis_client:
-                    standard_client = redis_client
-                else:
-                    # Otherwise, create a standard Redis client
-                    standard_client = redis.Redis(
-                        host=host,
-                        port=port,
-                        db=db,
-                        password=password,
-                        decode_responses=False
-                    )
-
-                # Check if this is a cluster by running CLUSTER SLOTS
-                is_cluster = False
-                cluster_nodes = []
-
-                try:
-                    print("Checking if Redis instance is part of a cluster...")
-                    slots_info = standard_client.execute_command('CLUSTER SLOTS')
-
-                    if slots_info and isinstance(slots_info, list) and len(slots_info) > 0:
-                        is_cluster = True
-                        print("Redis instance is part of a cluster. Will use Cluster API.")
-
-                        # Extract cluster nodes from slots info
-                        for slot_range in slots_info:
-                            if isinstance(slot_range, list) and len(slot_range) >= 3:
-                                # Process master node
-                                master_info = slot_range[2]
-                                if isinstance(master_info, list) and len(master_info) >= 2:
-                                    master_host = master_info[0]
-                                    if isinstance(master_host, bytes):
-                                        master_host = master_host.decode('utf-8')
-                                    master_port = master_info[1]
-
-                                    # Add to nodes list if not already there
-                                    node_addr = f"{master_host}:{master_port}"
-                                    if node_addr not in cluster_nodes:
-                                        cluster_nodes.append(node_addr)
-                                        print(f"Found cluster node: {node_addr} (master)")
-                except Exception as e:
-                    print(f"Not a cluster or error checking cluster status: {str(e)}")
-                    is_cluster = False
-
-                # Create the appropriate Redis client based on whether it's a cluster
-                if is_cluster and cluster_nodes:
-                    try:
-                        # Format startup nodes for RedisCluster
-                        startup_nodes = []
-                        for node in cluster_nodes:
-                            host, port = node.split(':')
-                            startup_nodes.append({"host": host, "port": int(port)})
-
-                        # Create a RedisCluster client
-                        print(f"Creating RedisCluster client with {len(startup_nodes)} nodes")
-                        r = RedisCluster(
-                            startup_nodes=startup_nodes,
-                            decode_responses=False,
-                            password=password
-                        )
-                        print("Successfully created RedisCluster client")
-                    except Exception as e:
-                        print(f"Error creating RedisCluster client: {str(e)}")
-                        print("Falling back to standard Redis client")
-                        is_cluster = False
-
-                # If not a cluster or cluster client creation failed, use standard Redis client
-                if not is_cluster:
-                    r = redis.Redis(
-                        host=host,
-                        port=port,
-                        db=db,
-                        password=password,
-                        decode_responses=False
-                    )
-                    print("Using standard Redis client")
-            except Exception as e:
-                print(f"Error creating Redis client: {str(e)}")
-                self._export_status = f"Error creating Redis client: {str(e)}"
-                return
+                    print(f"Using current Redis connection: {host}:{port} (db: {db})")
 
             # Connection info already printed above
 
@@ -824,7 +732,7 @@ class DataCommands:
 
             if redis_client:
                 # Get connection parameters from the connection manager
-                host, port, db, password = self._connection_manager.get_connection_parameters()
+                host, port, db, _ = self._connection_manager.get_connection_parameters()
                 # Check if this is a cluster connection
                 is_cluster = self._connection_manager.is_cluster_connection()
                 if is_cluster:
@@ -837,14 +745,9 @@ class DataCommands:
                 host = self._cli.host
                 port = self._cli.port
                 db = self._cli.redis.connection_pool.connection_kwargs.get('db', 0)
-                password = self._cli.redis.connection_pool.connection_kwargs.get('password', None)
                 print(f"Using current Redis connection from CLI: {host}:{port} (db: {db})")
             else:
                 # Fall back to default connection if no connection is available
-                host = 'localhost'
-                port = 6379
-                db = 0
-                password = None
                 print("No active connection available, using default connection: localhost:6379")
 
             try:
@@ -861,38 +764,14 @@ class DataCommands:
                     else:
                         print("Using existing Redis client from connection manager")
                 else:
-                    # We need to create a new client - let the connection manager handle the details
-                    # of whether it's a cluster or not
-                    print(f"Creating new Redis client for {host}:{port}")
-
-                    # Create a connection in the connection manager
-                    connection_info = {
-                        'host': host,
-                        'port': port,
-                        'db': db,
-                        'password': password
-                    }
-
-                    # Generate a temporary connection ID
-                    import uuid
-                    temp_conn_id = f"temp_{uuid.uuid4().hex[:8]}"
-
-                    # Add the connection to the connection manager
-                    self._connection_manager.add_connection(temp_conn_id, connection_info)
-
-                    # Get the client from the connection manager
-                    r = self._connection_manager.get_redis_client(temp_conn_id)
-
-                    # Check if it's a cluster
-                    is_cluster = self._connection_manager.is_cluster_connection(temp_conn_id)
-
-                    if is_cluster:
-                        print("Redis instance is part of a cluster")
+                    # Fall back to CLI connection if connection manager doesn't have a connection
+                    # This is for backward compatibility
+                    if self._cli and hasattr(self._cli, 'redis'):
+                        r = self._cli.redis
+                        print(f"Using current Redis connection from CLI: {self._cli.host}:{self._cli.port}")
                     else:
-                        print("Using standard Redis client")
-
-                    # We don't need to remove the temporary connection as it will be
-                    # garbage collected when the connection manager is reinitialized
+                        # No connection available, return an error
+                        return "Error: No active Redis connection available. Please create a connection first with /connection create."
             except Exception as e:
                 return f"Error creating Redis client: {str(e)}"
 
