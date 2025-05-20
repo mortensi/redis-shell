@@ -224,7 +224,7 @@ class RedisCLI:
 
     def get_prompt(self):
         """Get the prompt string."""
-        return f" {self.host}:{self.port}> "
+        return f"{self.host}:{self.port}> "
 
     def execute_command(self, command: str, *args) -> Any:
         """Execute a Redis command."""

@@ -189,16 +189,35 @@ class ExtensionManager:
         """Get completions that match the input text."""
         result = []
 
+        # Check if we have a namespace followed by a space (e.g., "/cluster ")
+        if ' ' in text and text.strip().startswith('/') and len(text.strip().split()) == 1:
+            # Extract the namespace (remove trailing spaces)
+            namespace = text.strip()
+
+            # If this is a valid namespace, show all its commands
+            if namespace in self.extensions:
+                for cmd in self.extensions[namespace]['definition']['commands']:
+                    result.append((f"{namespace} {cmd['name']}", cmd['description']))
+                return result
+
         # Split the input text into parts
         parts = text.split()
 
         # If we have just the namespace or partial namespace
         if len(parts) <= 1:
-            # Complete namespaces
-            for namespace, ext in self.extensions.items():
-                if not text or namespace.startswith(text):
-                    for cmd in ext['definition']['commands']:
-                        result.append((f"{namespace} {cmd['name']}", cmd['description']))
+            # If it's just a slash or a partial namespace, only show namespaces
+            if text == '/' or (text.startswith('/') and ' ' not in text):
+                for namespace, ext in self.extensions.items():
+                    if namespace.startswith(text):
+                        # Get a description from the extension definition if available
+                        description = ext['definition'].get('description', '')
+                        result.append((namespace, description))
+            # Otherwise, complete namespaces with commands
+            else:
+                for namespace, ext in self.extensions.items():
+                    if not text or namespace.startswith(text):
+                        for cmd in ext['definition']['commands']:
+                            result.append((f"{namespace} {cmd['name']}", cmd['description']))
 
         # If we have namespace and command
         elif len(parts) == 2:
