@@ -33,7 +33,7 @@ You can build the executable using `npx`
 ```
 uv pip install pex
 
-pex . -D . -e redis_shell.__main__:main -o redis-shell.pex --compile --venv
+pex . -D . -e redis_shell.__main__:main -o redis-shell.pex --venv --strip-pex-env --no-compile --no-wheel
 ```
 
 and launch it as `./redis-shell.pex`
