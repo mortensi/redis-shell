@@ -209,7 +209,7 @@ class RedisCLI:
             )
 
         self.style = Style.from_dict({
-            'prompt': '#00ff00 bold',
+            'prompt': '#ff0000 bold',
         })
         self.extension_manager = ExtensionManager(cli=self)  # Pass self to ExtensionManager
         self.completer = RedisCompleter(self)
