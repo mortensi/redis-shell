@@ -140,7 +140,22 @@ class ExtensionManager:
 
         # Check if this is a direct namespace command (e.g., /cluster)
         if command in self.extensions:
-            result = self.extensions[command]['commands'].handle_command(args[0], args[1:])
+            # If no arguments are provided, show available subcommands
+            if not args:
+                ext_def = self.extensions[command]['definition']
+                result = f"{command} commands:\n"
+
+                # Add each command with its description
+                for cmd in ext_def.get('commands', []):
+                    usage = cmd.get('usage', f"{command} {cmd['name']}")
+                    description = cmd.get('description', '')
+                    result += f"  {usage} - {description}\n"
+
+                # Add a note about how to get more help
+                result += f"\nRun '{command} <command>' to execute a specific command."
+            else:
+                # Normal case: pass the first arg as the command and the rest as args
+                result = self.extensions[command]['commands'].handle_command(args[0], args[1:])
 
         # Special handling for connection commands to ensure state is saved
         if result is not None and command == '/connection' and args and args[0] == 'create' and self.cli:
