@@ -7,25 +7,55 @@
         {
             "name": "create",
             "description": "Create a new Redis connection.",
-            "usage": "/connection create [--host HOST] [--port PORT] [--db DB] [--password PASSWORD]",
+            "usage": "/connection create [--host HOST] [--port PORT] [--db DB] [--username USERNAME] [--password PASSWORD] [--ssl] [--ssl-ca-certs SSL_CA_CERTS] [--ssl-ca-path SSL_CA_PATH] [--ssl-keyfile SSL_KEYFILE] [--ssl-certfile SSL_CERTFILE] [--ssl-cert-reqs SSL_CERT_REQS]",
             "options": [
                 {
                     "name": "--host",
-                    "description": "Redis host",
+                    "description": "Redis host (default: 127.0.0.1)",
                     "completion": "hosts"
                 },
                 {
                     "name": "--port",
-                    "description": "Redis port",
+                    "description": "Redis port (default: 6379)",
                     "completion": "ports"
                 },
                 {
                     "name": "--db",
-                    "description": "Redis database number"
+                    "description": "Redis database number (default: 0)"
+                },
+                {
+                    "name": "--username",
+                    "description": "Redis username (default: default)"
                 },
                 {
                     "name": "--password",
-                    "description": "Redis password"
+                    "description": "Redis password (default: empty)"
+                },
+                {
+                    "name": "--ssl",
+                    "description": "Enable SSL/TLS connection",
+                    "is_flag": true
+                },
+                {
+                    "name": "--ssl-ca-certs",
+                    "description": "Path to CA certificate file"
+                },
+                {
+                    "name": "--ssl-ca-path",
+                    "description": "Path to CA certificates directory"
+                },
+                {
+                    "name": "--ssl-keyfile",
+                    "description": "Path to private key file"
+                },
+                {
+                    "name": "--ssl-certfile",
+                    "description": "Path to certificate file"
+                },
+                {
+                    "name": "--ssl-cert-reqs",
+                    "description": "Certificate requirements (none, optional, required)",
+                    "completion": "cert_reqs"
                 }
             ]
         },
@@ -71,6 +101,10 @@
         "connection_ids": {
             "type": "function",
             "function": "get_connection_ids"
+        },
+        "cert_reqs": {
+            "type": "function",
+            "function": "get_cert_reqs"
         }
     },
     "author": "Redis Shell Team",

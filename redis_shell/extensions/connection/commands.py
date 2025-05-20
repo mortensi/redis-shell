@@ -58,10 +58,19 @@ class ConnectionCommands:
     def _create(self, args: list) -> str:
         """Create a new Redis connection."""
         parser = argparse.ArgumentParser(description='Create a new Redis connection')
-        parser.add_argument('--host', default='localhost', help='Redis host')
+        parser.add_argument('--host', default='127.0.0.1', help='Redis host')
         parser.add_argument('--port', type=int, default=6379, help='Redis port')
         parser.add_argument('--db', type=int, default=0, help='Redis database number')
-        parser.add_argument('--password', default=None, help='Redis password')
+        parser.add_argument('--username', default='default', help='Redis username')
+        parser.add_argument('--password', default='', help='Redis password')
+        parser.add_argument('--ssl', action='store_true', help='Enable SSL/TLS connection')
+        parser.add_argument('--ssl-ca-certs', help='Path to CA certificate file')
+        parser.add_argument('--ssl-ca-path', help='Path to CA certificates directory')
+        parser.add_argument('--ssl-keyfile', help='Path to private key file')
+        parser.add_argument('--ssl-certfile', help='Path to certificate file')
+        parser.add_argument('--ssl-cert-reqs', default='required',
+                           choices=['none', 'optional', 'required'],
+                           help='Certificate requirements (none, optional, required)')
 
         try:
             # Parse arguments
@@ -79,7 +88,14 @@ class ConnectionCommands:
                 'host': parsed_args.host,
                 'port': parsed_args.port,
                 'db': parsed_args.db,
-                'password': parsed_args.password
+                'username': parsed_args.username,
+                'password': parsed_args.password,
+                'ssl': parsed_args.ssl,
+                'ssl_ca_certs': parsed_args.ssl_ca_certs,
+                'ssl_ca_path': parsed_args.ssl_ca_path,
+                'ssl_keyfile': parsed_args.ssl_keyfile,
+                'ssl_certfile': parsed_args.ssl_certfile,
+                'ssl_cert_reqs': parsed_args.ssl_cert_reqs
             }
 
             # Test connection
@@ -88,7 +104,14 @@ class ConnectionCommands:
                     host=connection_info['host'],
                     port=connection_info['port'],
                     db=connection_info['db'],
-                    password=connection_info['password']
+                    username=connection_info['username'],
+                    password=connection_info['password'],
+                    ssl=connection_info['ssl'],
+                    ssl_ca_certs=connection_info['ssl_ca_certs'],
+                    ssl_ca_path=connection_info['ssl_ca_path'],
+                    ssl_keyfile=connection_info['ssl_keyfile'],
+                    ssl_certfile=connection_info['ssl_certfile'],
+                    ssl_cert_reqs=connection_info['ssl_cert_reqs']
                 )
                 r.ping()
             except redis.RedisError as e:
@@ -133,13 +156,14 @@ class ConnectionCommands:
             return "No connections available. Use '/connection create' to create one."
 
         result = "Available Redis connections:\n"
-        result += "-" * 60 + "\n"
-        result += f"{'ID':<5} {'Host':<15} {'Port':<6} {'DB':<4} {'Current':<8}\n"
-        result += "-" * 60 + "\n"
+        result += "-" * 100 + "\n"
+        result += f"{'ID':<5} {'Host':<15} {'Port':<6} {'DB':<4} {'Username':<10} {'SSL':<5} {'Current':<8}\n"
+        result += "-" * 100 + "\n"
 
         for conn_id, conn_info in self._connections.items():
             current = "✓" if conn_id == self._current_connection_id else ""
-            result += f"{conn_id:<5} {conn_info['host']:<15} {conn_info['port']:<6} {conn_info['db']:<4} {current:<8}\n"
+            ssl_enabled = "Yes" if conn_info.get('ssl', False) else "No"
+            result += f"{conn_id:<5} {conn_info['host']:<15} {conn_info['port']:<6} {conn_info['db']:<4} {conn_info.get('username', 'default'):<10} {ssl_enabled:<5} {current:<8}\n"
 
         return result
 
@@ -163,7 +187,12 @@ class ConnectionCommands:
         conn_info = self._connection_manager.get_connection_info(connection_id)
 
         # Return connection info to CLI for updating the connection
-        return f"SWITCH_CONNECTION:{conn_info['host']}:{conn_info['port']}:{conn_info['db']}:{conn_info['password']}"
+        # Format: SWITCH_CONNECTION:host:port:db:username:password:ssl:ssl_ca_certs:ssl_ca_path:ssl_keyfile:ssl_certfile:ssl_cert_reqs
+        return (f"SWITCH_CONNECTION:{conn_info['host']}:{conn_info['port']}:{conn_info['db']}:"
+                f"{conn_info.get('username', 'default')}:{conn_info.get('password', '')}:"
+                f"{str(conn_info.get('ssl', False)).lower()}:{conn_info.get('ssl_ca_certs', '')}:"
+                f"{conn_info.get('ssl_ca_path', '')}:{conn_info.get('ssl_keyfile', '')}:"
+                f"{conn_info.get('ssl_certfile', '')}:{conn_info.get('ssl_cert_reqs', 'required')}")
 
     def get_current_connection(self) -> Optional[Dict[str, Any]]:
         """Get the current connection info."""
@@ -246,3 +275,22 @@ class ConnectionCommands:
 
         # Filter IDs based on the incomplete text
         return [cid for cid in conn_ids if incomplete == "" or cid.startswith(incomplete)]
+
+    def get_cert_reqs(self, incomplete="") -> List[str]:
+        """Return SSL certificate requirements completions.
+
+        Args:
+            incomplete: The partial text to match against
+
+        Returns:
+            list: A list of certificate requirements that match the incomplete text
+        """
+        # SSL certificate requirements options
+        cert_reqs = [
+            "none",
+            "optional",
+            "required"
+        ]
+
+        # Filter options based on the incomplete text
+        return [req for req in cert_reqs if incomplete == "" or req.startswith(incomplete)]
