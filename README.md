@@ -45,16 +45,49 @@ Start the Redis shell:
 redis-shell [OPTIONS]
 ```
 
-Options:
-- `-h, --host TEXT`: Redis host (default: localhost)
+### Connection Options
+- `-h, --host TEXT`: Redis host (default: 127.0.0.1)
 - `-p, --port INTEGER`: Redis port (default: 6379)
 - `-n, --db INTEGER`: Redis database number (default: 0)
+- `-u, --username TEXT`: Redis username (default: default)
 - `-a, --password TEXT`: Redis password
+
+### SSL/TLS Options
+- `--ssl`: Enable SSL/TLS connection
+- `--ssl-ca-certs TEXT`: Path to CA certificate file
+- `--ssl-ca-path TEXT`: Path to CA certificates directory
+- `--ssl-keyfile TEXT`: Path to private key file
+- `--ssl-certfile TEXT`: Path to certificate file
+- `--ssl-cert-reqs [none|optional|required]`: Certificate requirements (default: required)
+
+### Configuration and Logging Options
 - `-c, --config-file TEXT`: Path to configuration file
 - `-l, --log-level TEXT`: Log level (debug, info, warning, error, critical)
 - `-f, --log-file TEXT`: Path to log file
-- `-x, --command TEXT`: Command to execute
+
+### Other Options
+- `-x, --command TEXT`: Execute a command and exit
 - `-v, --version`: Show version and exit
+- `--help`: Show help message and exit
+
+### Environment Variables
+- `REDIS_HOST`: Redis host (default: 127.0.0.1)
+- `REDIS_PORT`: Redis port (default: 6379)
+- `REDIS_DB`: Redis database number (default: 0)
+- `REDIS_USERNAME`: Redis username (default: default)
+- `REDIS_PASSWORD`: Redis password
+- `REDIS_SHELL_CONFIG`: Path to configuration file
+- `REDIS_SHELL_LOG_LEVEL`: Log level (debug, info, warning, error, critical)
+- `REDIS_SHELL_LOG_FILE`: Path to log file
+
+### Configuration File Locations
+Redis Shell looks for configuration files in the following locations (in order):
+1. Path specified by `REDIS_SHELL_CONFIG` environment variable
+2. `~/.redis-shell`
+3. `~/.config/redis-shell/config.json`
+4. `/etc/redis-shell/config.json`
+
+If no configuration file is found, a default one is created at `~/.redis-shell`.
 
 ### Shell Commands
 
@@ -110,9 +143,14 @@ Executed: GET mykey
 "Hello World"
 ```
 
-### Extension Commands
+### Extensions
 
-The shell provides several extension commands for advanced functionality:
+Redis Shell has an extensible architecture that allows you to create and use custom extensions. Extensions are loaded from two locations:
+
+1. **Built-in Extensions**: Located in the package's `redis_shell/extensions` directory
+2. **User Extensions**: Located in `~/.config/redis-shell/extensions` directory
+
+The shell provides several built-in extension commands for advanced functionality:
 
 #### Cluster Management
 
@@ -171,3 +209,47 @@ redis> /sentinel info
 # Remove the Sentinel setup
 redis> /sentinel remove
 ```
+
+#### Creating Custom Extensions
+
+You can create your own extensions to add custom functionality to Redis Shell. Extensions should be placed in the `~/.config/redis-shell/extensions` directory.
+
+Each extension requires:
+1. A directory with the extension name (e.g., `myextension`)
+2. An `extension.json` file defining the extension
+3. A `commands.py` file implementing the extension's commands
+
+Example `extension.json`:
+```json
+{
+    "name": "myextension",
+    "version": "1.0.0",
+    "description": "My custom extension for Redis Shell",
+    "namespace": "/myext",
+    "commands": [
+        {
+            "name": "hello",
+            "description": "Say hello",
+            "usage": "/myext hello [name]",
+            "options": []
+        }
+    ],
+    "author": "Your Name"
+}
+```
+
+Example `commands.py`:
+```python
+class MyextensionCommands:
+    def __init__(self, cli=None):
+        self._cli = cli
+
+    def handle_command(self, cmd: str, args: list) -> str:
+        """Handle extension commands."""
+        if cmd == "hello":
+            name = args[0] if args else "World"
+            return f"Hello, {name}!"
+        return None
+```
+
+After creating your extension, restart Redis Shell to load it.
