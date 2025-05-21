@@ -436,7 +436,6 @@ class DataCommands:
                                     # Update status every 10 keys
                                     if processed_keys % 10 == 0:
                                         self._export_status = f"Exported {processed_keys} keys..."
-                                        print(f"Progress: Exported {processed_keys} keys...")
 
                                 except KeyboardInterrupt:
                                     self._stop_event.set()
@@ -602,7 +601,7 @@ class DataCommands:
                                             # Update status every 10 keys
                                             if processed_keys % 10 == 0:
                                                 self._export_status = f"Exported {processed_keys} keys..."
-                                                print(f"Progress: Exported {processed_keys} keys...")
+                                                print(f" {processed_keys} keys...")
 
                                         except KeyboardInterrupt:
                                             self._stop_event.set()
