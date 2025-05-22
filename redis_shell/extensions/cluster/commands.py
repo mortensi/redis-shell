@@ -13,6 +13,7 @@ spec.loader.exec_module(cluster_module)
 ClusterDeployer = cluster_module.ClusterDeployer
 
 from redis_shell.state_manager import StateManager
+from redis_shell.config import config
 
 class ClusterCommands:
     def __init__(self, cli=None):
@@ -52,41 +53,45 @@ class ClusterCommands:
             print("Checking cluster status...")
             status = deployer.check_cluster()
 
-            # Save cluster state
-            self._state.set_extension_state('cluster', {
-                'active': True,
-                'running': True,
-                'ports': deployer.ports,
-                'status': status
-            })
+            # Save cluster configuration to the config system
+            config.set('cluster', 'active', True)
+            config.set('cluster', 'running', True)
+            config.set('cluster', 'ports', deployer.ports)
+            config.set('cluster', 'status', status)
+            config.save_config()
 
             return status
         except Exception as e:
             if self._deployer:
                 self._deployer.cleanup()
             self._deployer = None
-            self._state.clear_extension_state('cluster')
+
+            # Clear cluster configuration
+            if 'cluster' in config.config:
+                del config.config['cluster']
+                config.save_config()
+
             return f"Error deploying cluster: {str(e)}"
 
     def _info(self) -> str:
         """Get cluster information.
 
         This method checks the status of a Redis cluster by:
-        1. Reading cluster info from the state file
+        1. Reading cluster info from the configuration
         2. Attempting to connect to any available node in the cluster
         3. Checking the cluster status live
         """
-        # First check if we have a cluster in the state file
-        state = self._state.get_extension_state('cluster')
+        # First check if we have a cluster in the configuration
+        cluster_config = config.get_section('cluster')
         ports_to_check = []
 
-        if state.get('active') and 'ports' in state:
-            # Get ports from state file
-            ports_to_check = state['ports']
-            print(f"Found cluster configuration in state file with ports: {ports_to_check}")
+        if cluster_config.get('active') and 'ports' in cluster_config:
+            # Get ports from configuration
+            ports_to_check = cluster_config['ports']
+            print(f"Found cluster configuration with ports: {ports_to_check}")
         else:
-            # No cluster in state file, use default ports
-            print("No cluster configuration found in state file. Using default ports.")
+            # No cluster in configuration, use default ports
+            print("No cluster configuration found. Using default ports.")
             # Use default ports from ClusterDeployer
             if not self._deployer:
                 self._deployer = ClusterDeployer()
@@ -114,10 +119,10 @@ class ClusterCommands:
 
         # If we couldn't connect to any node
         if not node:
-            # Update state if it exists
-            if state.get('active'):
-                state['running'] = False
-                self._state.set_extension_state('cluster', state)
+            # Update configuration if it exists
+            if cluster_config.get('active'):
+                config.set('cluster', 'running', False)
+                config.save_config()
 
             return "No running Redis cluster found. Use '/cluster deploy' to create one."
 
@@ -162,18 +167,15 @@ class ClusterCommands:
                     self._deployer.ports = [connected_port]
                     print(f"Could not get cluster slots, using connected port: {connected_port}")
 
-            # Update state
-            state = {
-                'active': True,
-                'running': True,
-                'ports': self._deployer.ports
-            }
-            self._state.set_extension_state('cluster', state)
+            # Update configuration
+            config.set('cluster', 'active', True)
+            config.set('cluster', 'running', True)
+            config.set('cluster', 'ports', self._deployer.ports)
 
             # Get detailed cluster status
             status = self._deployer.check_cluster()
-            state['status'] = status
-            self._state.set_extension_state('cluster', state)
+            config.set('cluster', 'status', status)
+            config.save_config()
             return status
 
         except Exception as e:
@@ -184,26 +186,26 @@ class ClusterCommands:
     def _remove(self) -> str:
         """Remove the cluster and clean up.
 
-        This method attempts to clean up the cluster regardless of the state in the state file.
+        This method attempts to clean up the cluster regardless of the state in the configuration.
         It will:
-        1. Try to get ports from the state file
-        2. If no state is found, use default ports
+        1. Try to get ports from the configuration
+        2. If no configuration is found, use default ports
         3. Try to gracefully shut down Redis instances using the SHUTDOWN command
         4. Fall back to killing processes if SHUTDOWN fails
         5. Remove all cluster configuration files
-        6. Clear the state
+        6. Clear the configuration
         """
         # Get ports to clean up
         ports_to_clean = []
-        state = self._state.get_extension_state('cluster')
+        cluster_config = config.get_section('cluster')
 
-        if state.get('active') and 'ports' in state:
-            # Get ports from state file
-            ports_to_clean = state['ports']
-            print(f"Found cluster configuration in state file with ports: {ports_to_clean}")
+        if cluster_config.get('active') and 'ports' in cluster_config:
+            # Get ports from configuration
+            ports_to_clean = cluster_config['ports']
+            print(f"Found cluster configuration with ports: {ports_to_clean}")
         else:
-            # No cluster in state file, use default ports
-            print("No cluster configuration found in state file. Using default ports.")
+            # No cluster in configuration, use default ports
+            print("No cluster configuration found. Using default ports.")
             # Use default ports from ClusterDeployer
             if not self._deployer:
                 self._deployer = ClusterDeployer()
@@ -276,9 +278,19 @@ class ClusterCommands:
             except Exception as e:
                 print(f"Error removing configuration files for port {port}: {e}")
 
-        # Clear state and deployer
+        # Clear deployer
         self._deployer = None
-        self._state.clear_extension_state('cluster')
+
+        # Remove cluster configuration from config
+        if 'cluster' in config.config:
+            del config.config['cluster']
+            config.save_config()
+
+        # Double-check that the configuration was cleared
+        if 'cluster' in config.config:
+            # If for some reason it's still there, try again with a different approach
+            config.config['cluster'] = {}
+            config.save_config()
 
         if any(shutdown_success.values()):
             return "Cluster processes gracefully shut down and configuration cleaned up."
@@ -293,16 +305,16 @@ class ClusterCommands:
         This method will:
         1. Try to gracefully shut down Redis instances using the SHUTDOWN command
         2. Fall back to killing processes if SHUTDOWN fails
-        3. Update the state to indicate the cluster is stopped but can be restarted
+        3. Update the configuration to indicate the cluster is stopped but can be restarted
         """
-        state = self._state.get_extension_state('cluster')
-        if not state.get('active'):
+        cluster_config = config.get_section('cluster')
+        if not cluster_config.get('active'):
             return "No active cluster."
 
         if not self._deployer:
-            # Recreate deployer from state
+            # Recreate deployer from configuration
             self._deployer = ClusterDeployer()
-            self._deployer.ports = state['ports']
+            self._deployer.ports = cluster_config['ports']
 
         # First, try to gracefully shut down Redis instances
         shutdown_success = {}
@@ -373,9 +385,9 @@ class ClusterCommands:
             if ports_still_in_use:
                 print("Warning: Some Redis processes could not be stopped.")
 
-        # Update state to indicate cluster is stopped but can be restarted
-        state['running'] = False
-        self._state.set_extension_state('cluster', state)
+        # Update configuration to indicate cluster is stopped but can be restarted
+        config.set('cluster', 'running', False)
+        config.save_config()
 
         if any(shutdown_success.values()):
             return "Cluster gracefully stopped with data preserved."
@@ -384,14 +396,14 @@ class ClusterCommands:
 
     def _start(self) -> str:
         """Start the cluster without losing data."""
-        state = self._state.get_extension_state('cluster')
-        if not state.get('active'):
+        cluster_config = config.get_section('cluster')
+        if not cluster_config.get('active'):
             return "No active cluster. Use '/cluster deploy' to create one."
 
         if not self._deployer:
-            # Recreate deployer from state
+            # Recreate deployer from configuration
             self._deployer = ClusterDeployer()
-            self._deployer.ports = state['ports']
+            self._deployer.ports = cluster_config['ports']
 
         # Start the Redis nodes
         self._deployer.start_nodes()
@@ -421,9 +433,9 @@ class ClusterCommands:
         if not cluster_running:
             return "Failed to start the cluster. Check the logs for errors."
 
-        # Update state to indicate cluster is running
-        state['running'] = True
-        self._state.set_extension_state('cluster', state)
+        # Update configuration to indicate cluster is running
+        config.set('cluster', 'running', True)
+        config.save_config()
 
         # Check cluster status
         try:
@@ -436,5 +448,5 @@ class ClusterCommands:
         return "Cluster started with data preserved."
 
     def save_state_on_exit(self):
-        """Ensure the state is saved to persistent storage on exit."""
-        self._state.save_to_disk()
+        """Ensure the configuration is saved to persistent storage on exit."""
+        config.save_config()
