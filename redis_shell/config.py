@@ -101,25 +101,25 @@ class Config:
     def _load_config(self) -> None:
         """Load configuration from file."""
         try:
+            # Reset to default configuration first
+            self.config = DEFAULT_CONFIG.copy()
+
             # If the file exists but is empty, initialize it with default configuration
             if os.path.isfile(self.config_file) and os.path.getsize(self.config_file) == 0:
-                logger.warning(f"Configuration file {self.config_file} is empty. Initializing with defaults.")
                 self.save_config()
 
             # If the file does not exist, create it with default configuration
             elif not os.path.isfile(self.config_file):
-                logger.warning(f"Configuration file {self.config_file} does not exist. Creating it with defaults.")
                 self.save_config()
 
             if os.path.isfile(self.config_file):
                 with open(self.config_file, 'r') as f:
                     user_config = json.load(f)
 
-                # Merge user configuration with default configuration
-                self._merge_config(self.config, user_config)
-                logger.info(f"Loaded configuration from {self.config_file}")
-            else:
-                logger.info(f"Configuration file {self.config_file} not found, using defaults")
+                # Replace the configuration with what's in the file
+                # This ensures we're always using the latest data from disk
+                self.config = user_config
+            # If file doesn't exist, we'll use the default configuration
 
         except Exception as e:
             logger.error(f"Error loading configuration: {str(e)}")
@@ -151,7 +151,7 @@ class Config:
             with open(self.config_file, 'w') as f:
                 json.dump(self.config, f, indent=2)
 
-            logger.info(f"Saved configuration to {self.config_file}")
+            # Configuration saved successfully
         except Exception as e:
             logger.error(f"Error saving configuration: {str(e)}")
             raise ConfigurationError(f"Error saving configuration: {str(e)}")
@@ -168,6 +168,9 @@ class Config:
         Returns:
             Configuration value
         """
+        # Always reload the configuration from disk to ensure we have the latest values
+        self._load_config()
+
         if section in self.config and key in self.config[section]:
             return self.config[section][key]
         return default
@@ -196,6 +199,9 @@ class Config:
         Returns:
             Configuration section
         """
+        # Always reload the configuration from disk to ensure we have the latest values
+        self._load_config()
+
         return self.config.get(section, {})
 
     def get_all(self) -> Dict[str, Any]:
@@ -205,6 +211,9 @@ class Config:
         Returns:
             Entire configuration
         """
+        # Always reload the configuration from disk to ensure we have the latest values
+        self._load_config()
+
         return self.config.copy()
 
 

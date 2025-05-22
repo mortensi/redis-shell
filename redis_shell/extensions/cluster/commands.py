@@ -88,10 +88,9 @@ class ClusterCommands:
         if cluster_config.get('active') and 'ports' in cluster_config:
             # Get ports from configuration
             ports_to_check = cluster_config['ports']
-            print(f"Found cluster configuration with ports: {ports_to_check}")
+            # Using ports from configuration
         else:
             # No cluster in configuration, use default ports
-            print("No cluster configuration found. Using default ports.")
             # Use default ports from ClusterDeployer
             if not self._deployer:
                 self._deployer = ClusterDeployer()
@@ -111,10 +110,10 @@ class ClusterCommands:
                     # Found a working node
                     connected_port = port
                     node = temp_node
-                    print(f"Successfully connected to Redis node on port {port}")
+                    # Successfully connected to Redis node
                     break
                 except Exception as e:
-                    print(f"Port {port} is in use but could not connect to Redis: {str(e)}")
+                    # Port is in use but could not connect to Redis
                     continue
 
         # If we couldn't connect to any node
@@ -197,15 +196,16 @@ class ClusterCommands:
         """
         # Get ports to clean up
         ports_to_clean = []
+
+        # Always reload the configuration from disk
         cluster_config = config.get_section('cluster')
 
         if cluster_config.get('active') and 'ports' in cluster_config:
             # Get ports from configuration
             ports_to_clean = cluster_config['ports']
-            print(f"Found cluster configuration with ports: {ports_to_clean}")
+            # Using ports from configuration
         else:
             # No cluster in configuration, use default ports
-            print("No cluster configuration found. Using default ports.")
             # Use default ports from ClusterDeployer
             if not self._deployer:
                 self._deployer = ClusterDeployer()
@@ -228,10 +228,11 @@ class ClusterCommands:
                     if r.ping():
                         # Send shutdown command
                         r.shutdown()
-                        print(f"Gracefully shut down Redis server on port {port}")
+                        # Gracefully shut down Redis server
                         shutdown_success[port] = True
                 except Exception as e:
-                    print(f"Could not gracefully shut down Redis on port {port}: {str(e)}")
+                    # Could not gracefully shut down Redis server
+                    pass
 
         # Give some time for Redis to shut down
         time.sleep(1)
@@ -282,11 +283,17 @@ class ClusterCommands:
         self._deployer = None
 
         # Remove cluster configuration from config
+        # First, reload the configuration to ensure we have the latest
+        config._load_config()
+
         if 'cluster' in config.config:
             del config.config['cluster']
             config.save_config()
 
         # Double-check that the configuration was cleared
+        # Reload the configuration again to verify
+        config._load_config()
+
         if 'cluster' in config.config:
             # If for some reason it's still there, try again with a different approach
             config.config['cluster'] = {}
