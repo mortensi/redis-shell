@@ -316,6 +316,9 @@ class ClusterCommands:
             config.config['cluster'] = {}
             config.save_config()
 
+        # Clear cluster configuration from the state manager
+        self._state.clear_extension_state('cluster')
+
         if any(shutdown_success.values()):
             return "Cluster processes gracefully shut down and configuration cleaned up."
         elif killed_processes:
