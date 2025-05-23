@@ -50,23 +50,40 @@ class ClusterCommands:
             print("Creating cluster...")
             deployer.create_cluster()
 
-            print("Checking cluster status...")
-            status = deployer.check_cluster()
-
-            # Save cluster configuration to the config system
+            # Save cluster configuration immediately after creation
+            # This ensures the configuration is saved even if status check fails
             config.set('cluster', 'active', True)
             config.set('cluster', 'running', True)
             config.set('cluster', 'ports', deployer.ports)
-            config.set('cluster', 'status', status)
             config.save_config()
 
-            return status
+            print("Checking cluster status...")
+            try:
+                status = deployer.check_cluster()
+                # Update status in configuration
+                config.set('cluster', 'status', status)
+                config.save_config()
+
+                # Explicitly save cluster state to the state manager
+                self._state.set_extension_state('cluster', {
+                    'active': True,
+                    'running': True,
+                    'ports': deployer.ports,
+                    'status': status
+                })
+
+                return status
+            except Exception as status_error:
+                # If status check fails, still report success but with a warning
+                print(f"Warning: Cluster created but could not get status: {str(status_error)}")
+                return "Cluster deployed successfully, but status check failed. Use '/cluster info' to check status."
+
         except Exception as e:
             if self._deployer:
                 self._deployer.cleanup()
             self._deployer = None
 
-            # Clear cluster configuration
+            # Clear cluster configuration only if we failed before saving it
             if 'cluster' in config.config:
                 del config.config['cluster']
                 config.save_config()
