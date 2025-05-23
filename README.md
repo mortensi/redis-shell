@@ -14,6 +14,11 @@ pex . -D . -e redis_shell.__main__:main -o redis-shell.pex --venv --strip-pex-en
 
 and launch it as `./redis-shell.pex`
 
+- If you'd like to include user extensions in the executable, you can do so by adding the `-D $HOME/.config/redis-shell/extensions` flag to the `pex` command.
+- If you'd like to include all dependencies of user extensions, you can do so by adding the `-r $HOME/.config/redis-shell/extensions/*/requirements.txt` flag to the `pex` command.
+
+So the command would be `pex . -D . -D $HOME/.config/redis-shell/extensions -r $HOME/.config/redis-shell/extensions/*/requirements.txt -e redis_shell.__main__:main -o redis-shell.pex --venv --strip-pex-env --no-compile --no-wheel --compress`
+
 
 ## Installation for Developers
 
