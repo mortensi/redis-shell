@@ -7,7 +7,7 @@
         {
             "name": "export",
             "description": "Export Redis data to a file.",
-            "usage": "/data export [--pattern PATTERN] [--folder FOLDER] [--force-keys] [--cancel]",
+            "usage": "/data export [--pattern PATTERN] [--folder FOLDER] [--force-keys] [--cancel] [--reset]",
             "options": [
                 {
                     "name": "--pattern",

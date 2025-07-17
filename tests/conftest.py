@@ -19,7 +19,7 @@ sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '..')
 from redis_shell.config import Config
 from redis_shell.state_manager import StateManager
 from redis_shell.connection_manager import ConnectionManager
-from redis_shell.extensions import ExtensionManager
+from redis_shell.extension_manager import ExtensionManager
 
 
 @pytest.fixture
