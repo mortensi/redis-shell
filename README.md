@@ -1,254 +1,349 @@
 # Redis Shell
 
-An enhanced Redis CLI shell built with Python, providing a unified interface for both Redis commands and extension commands.
+[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
+[![Python 3.8+](https://img.shields.io/badge/python-3.8+-blue.svg)](https://www.python.org/downloads/)
 
-## Installation for Users
+> Disclaimer, this is a personal project and not affiliated with Redis. No guarantees are provided.
 
-You can build and use the executable using `npx`. From a virtual environment:
+An enhanced Redis CLI shell built with Python that goes beyond the standard `redis-cli`. Redis Shell provides a rich interactive experience with multi-connection management, data import/export, cluster management, and an extensible plugin architecture.
 
-```
+## ✨ Key Features
+
+- 🚀 **Enhanced Interactive Shell** - Command history, autocompletion, and intuitive interface
+- 🔗 **Multi-Connection Management** - Work with multiple Redis instances simultaneously
+- 📊 **Data Import/Export** - Backup, migrate, and share Redis datasets with pattern matching
+- 🏗️ **Cluster & Sentinel Support** - Deploy and manage Redis clusters and high-availability setups
+- 🔧 **Extensible Architecture** - Create custom extensions for specialized functionality
+- 🔒 **SSL/TLS Support** - Secure connections with certificate management
+- ⚙️ **Flexible Configuration** - Environment variables, config files, and runtime settings
+
+## 📚 Documentation
+
+- **[Getting Started](docs/getting_started.md)** - Step-by-step tutorial for new users
+- **[User Guide](docs/user_guide.md)** - Comprehensive usage documentation
+- **[Built-in Extensions](docs/built_in_extensions.md)** - Reference for all built-in extensions
+- **[Configuration](docs/configuration.md)** - Complete configuration reference
+- **[Extension Development](docs/extension_development.md)** - Guide for creating custom extensions
+- **[Architecture](docs/architecture.md)** - Technical architecture overview
+- **[API Reference](docs/api_reference.md)** - API documentation for developers
+- **[Troubleshooting](docs/troubleshooting.md)** - Solutions for common issues
+
+## 🚀 Quick Start
+
+### Installation
+
+#### For End Users (Recommended)
+
+Create a standalone executable using PEX:
+
+```bash
+# Install PEX in a virtual environment
+uv venv && source .venv/bin/activate
 uv pip install pex
 
+# Create the executable
 pex . -D . -e redis_shell.__main__:main -o redis-shell.pex --venv --strip-pex-env --no-compile --no-wheel --compress
+
+# Run it
+./redis-shell.pex
 ```
 
-and launch it as `./redis-shell.pex`
+#### For Developers
 
-- If you'd like to include user extensions in the executable, you can do so by adding the `-D $HOME/.config/redis-shell/extensions` flag to the `pex` command.
-- If you'd like to include all dependencies of user extensions, you can do so by adding the `-r $HOME/.config/redis-shell/extensions/*/requirements.txt` flag to the `pex` command.
-
-So the command would be `pex . -D . -D $HOME/.config/redis-shell/extensions -r $HOME/.config/redis-shell/extensions/*/requirements.txt -e redis_shell.__main__:main -o redis-shell.pex --venv --strip-pex-env --no-compile --no-wheel --compress`
-
-
-## Installation for Developers
-
-If you want to contribute or modify the code:
-
-1. Clone this repository
-2. Create a virtual environment and install the package:
 ```bash
-uv venv
-source .venv/bin/activate  # On Windows: .venv\Scripts\activate
+# Clone and install in development mode
+git clone <repository-url>
+cd redis-shell
+uv venv && source .venv/bin/activate
 uv pip install -e .
+
+# Run directly
+redis-shell
 ```
 
-Now you can run it as `redis-shell`
-
-
-## Usage
-
-Start the Redis Shell:
+### First Connection
 
 ```bash
-redis-shell [OPTIONS]
+# Connect to local Redis
+redis-shell
+
+# Connect to remote Redis with authentication
+redis-shell --host redis.example.com --port 6379 --password mypassword
+
+# Connect with SSL
+redis-shell --host secure-redis.com --port 6380 --ssl
 ```
 
-### Connection Options
-- `-h, --host TEXT`: Redis host (default: 127.0.0.1)
-- `-p, --port INTEGER`: Redis port (default: 6379)
-- `-n, --db INTEGER`: Redis database number (default: 0)
-- `-u, --username TEXT`: Redis username (default: default)
-- `-a, --password TEXT`: Redis password
 
-### SSL/TLS Options
-- `--ssl`: Enable SSL/TLS connection
-- `--ssl-ca-certs TEXT`: Path to CA certificate file
-- `--ssl-ca-path TEXT`: Path to CA certificates directory
-- `--ssl-keyfile TEXT`: Path to private key file
-- `--ssl-certfile TEXT`: Path to certificate file
-- `--ssl-cert-reqs [none|optional|required]`: Certificate requirements (default: required)
+## 💡 Usage Examples
 
-### Configuration and Logging Options
-- `-c, --config-file TEXT`: Path to configuration file
-- `-l, --log-level TEXT`: Log level (debug, info, warning, error, critical)
-- `-f, --log-file TEXT`: Path to log file
+### Basic Redis Operations
 
-### Other Options
-- `-x, --command TEXT`: Execute a command and exit
-- `-v, --version`: Show version and exit
-- `--help`: Show help message and exit
+```bash
+# Start Redis Shell
+redis-shell
 
-### Environment Variables
-- `REDIS_HOST`: Redis host (default: 127.0.0.1)
-- `REDIS_PORT`: Redis port (default: 6379)
-- `REDIS_DB`: Redis database number (default: 0)
-- `REDIS_USERNAME`: Redis username (default: default)
-- `REDIS_PASSWORD`: Redis password
-- `REDIS_SHELL_CONFIG`: Path to configuration file
-- `REDIS_SHELL_LOG_LEVEL`: Log level (debug, info, warning, error, critical)
-- `REDIS_SHELL_LOG_FILE`: Path to log file
+# Standard Redis commands work as expected
+localhost:6379> SET greeting "Hello, Redis Shell!"
+OK
+localhost:6379> GET greeting
+"Hello, Redis Shell!"
 
-### Configuration File Locations
-Redis Shell looks for configuration files in the following locations (in order):
-
-1. Path specified by `REDIS_SHELL_CONFIG` environment variable
-2. `~/.redis-shell`
-3. `~/.config/redis-shell/config.json`
-4. `/etc/redis-shell/config.json`
-
-If no configuration file is found, a default one is created at `~/.redis-shell`.
+# Hash operations
+localhost:6379> HSET user:1001 name "Alice" email "alice@example.com"
+(integer) 2
+localhost:6379> HGETALL user:1001
+1) "name"
+2) "Alice"
+3) "email"
+4) "alice@example.com"
+```
 
 ### Shell Commands
 
-The shell provides command autocompletion and several utility commands:
-
-#### Autocompletion
-Press `Tab` to show available commands and their descriptions. The shell provides:
-- Shell command completion (commands starting with `/`)
-- Extension command completion (like `/cluster`, `/data`, `/connection`, etc.)
-
-#### Commands
-
-- `/clear`: Clear the screen
-- `/help`: Show help message
-- `/exit`: Exit the shell
-- `/history`: Show command history
-  - Use `/history clear` to clear history
-  - Use `/history <number>` to run a specific command from history
-
-### Examples
-
 ```bash
-# Start the shell
-redis-shell
-
-# Direct Redis commands
-localhost:6379> SET mykey "Hello World"
-OK
-localhost:6379> GET mykey
-"Hello World"
-
-# Hash operations
-localhost:6379> HSET user:1 name "John" age "30"
-(integer) 2
-redis> HGETALL user:1
-1) "name"
-2) "John"
-3) "age"
-4) "30"
-
 # View command history
 localhost:6379> /history
 Command history:
-  1: SET mykey "Hello World"
-  2: GET mykey
-  3: HSET user:1 name "John" age "30"
-  4: HGETALL user:1
+  1: SET greeting "Hello, Redis Shell!"
+  2: GET greeting
+  3: HSET user:1001 name "Alice" email "alice@example.com"
 
-# Run a command from history by its number
+# Re-run a command from history
 localhost:6379> /history 2
-Running command: GET mykey
-Executed: GET mykey
-"Hello World"
+Running command: GET greeting
+"Hello, Redis Shell!"
+
+# Get help
+localhost:6379> /help
+Available commands:
+  /clear - Clear screen
+  /exit - Exit shell
+  /help - Show help message
+  /history - Show command history
 ```
 
-### Extensions
-
-Redis Shell has an extensible architecture that allows you to create and use custom extensions. Extensions are loaded from two locations:
-
-1. **Built-in Extensions**: Located in the package's `redis_shell/extensions` directory
-2. **User Extensions**: Located in `~/.config/redis-shell/extensions` directory
-
-The shell provides several built-in extension commands for advanced functionality:
-
-#### Cluster Management
+### Multi-Connection Management
 
 ```bash
-# Deploy a cluster with default settings (3 masters, 3 replicas, starting at port 30000)
-redis> /cluster deploy
-
-# Get cluster information
-redis> /cluster info
-
-# Stop and clean up the cluster
-redis> /cluster remove
-```
-
-#### Data Import/Export
-
-```bash
-# Export all keys to a file
-redis> /data export
-
-# Export keys matching a pattern
-redis> /data export --pattern "user:*"
-
-# Import data from a file
-redis> /data import --file redis-export-20230101-123456-localhost-6379.txt
-
-# Check export/import status
-redis> /data status
-```
-
-#### Connection Management
-
-```bash
-# Create a new connection
-redis> /connection create --host redis.example.com --port 6379
+# Create additional connections
+localhost:6379> /connection create --host redis2.example.com --port 6379
+Connection created with ID: 2
 
 # List all connections
-redis> /connection list
+localhost:6379> /connection list
+Connections:
+* 1: localhost:6379 (db: 0) [Current]
+  2: redis2.example.com:6379 (db: 0)
 
-# Switch to a different connection
-redis> /connection use 2
-
-# Remove a connection
-redis> /connection destroy 2
+# Switch between connections
+localhost:6379> /connection use 2
+Switched to connection 2
+redis2.example.com:6379>
 ```
 
-#### Sentinel Management
+### Data Import/Export
 
 ```bash
-# Deploy a Redis Sentinel setup
-redis> /sentinel deploy
+# Export all data
+localhost:6379> /data export
+Export completed: redis-export-20240118-143022-localhost-6379.txt
 
-# Get Sentinel information
-redis> /sentinel info
+# Export with pattern matching
+localhost:6379> /data export --pattern "user:*"
+Export completed: redis-export-20240118-143045-localhost-6379.txt
 
-# Remove the Sentinel setup
-redis> /sentinel remove
+# Import data
+localhost:6379> /data import --file redis-export-20240118-143022-localhost-6379.txt
+Import completed: 1,234 keys imported
 ```
 
-#### Creating Custom Extensions
+### Cluster Management
 
-You can create your own extensions to add custom functionality to Redis Shell. Extensions should be placed in the `~/.config/redis-shell/extensions` directory.
+```bash
+# Deploy a local Redis cluster for testing
+localhost:6379> /cluster deploy
+Deploying Redis cluster...
+Cluster deployed successfully!
 
-Each extension requires:
-1. A directory with the extension name (e.g., `myextension`)
-2. An `extension.json` file defining the extension
-3. A `commands.py` file implementing the extension's commands
+# Get cluster information
+localhost:6379> /cluster info
+Redis Cluster Information:
+Status: Running
+Nodes: 6 (3 masters, 3 replicas)
 
-Example `extension.json`:
-```json
-{
-    "name": "myextension",
-    "version": "1.0.0",
-    "description": "My custom extension for Redis Shell",
-    "namespace": "/myext",
-    "commands": [
-        {
-            "name": "hello",
-            "description": "Say hello",
-            "usage": "/myext hello [name]",
-            "options": []
-        }
-    ],
-    "author": "Your Name"
-}
+# Clean up
+localhost:6379> /cluster remove
+Cluster removed successfully!
 ```
 
-Example `commands.py`:
-```python
-class MyextensionCommands:
-    def __init__(self, cli=None):
-        self._cli = cli
+## 🔧 Command Line Options
 
-    def handle_command(self, cmd: str, args: list) -> str:
-        """Handle extension commands."""
-        if cmd == "hello":
-            name = args[0] if args else "World"
-            return f"Hello, {name}!"
-        return None
+### Connection Options
+```bash
+redis-shell --host redis.example.com --port 6379 --db 1 --password secret
 ```
 
-After creating your extension, restart Redis Shell to load it.
+### SSL/TLS Options
+```bash
+redis-shell --ssl --ssl-ca-certs /path/to/ca.crt --ssl-cert-reqs required
+```
+
+### Other Options
+```bash
+redis-shell --log-level debug --config-file /path/to/config.json
+redis-shell --command "GET mykey"  # Execute single command and exit
+```
+
+## 🌍 Environment Variables
+
+Set these environment variables for default connection settings:
+
+```bash
+export REDIS_HOST=redis.example.com
+export REDIS_PORT=6379
+export REDIS_PASSWORD=mypassword
+export REDIS_SHELL_LOG_LEVEL=debug
+export REDIS_SHELL_CONFIG=/path/to/config.json
+```
+
+For a complete list of options, see the [Configuration Guide](docs/configuration.md).
+
+## 🔌 Built-in Extensions
+
+Redis Shell comes with powerful built-in extensions:
+
+### 📊 Data Extension (`/data`)
+- **Export/Import**: Backup and restore Redis data with pattern matching
+- **Status Monitoring**: Track progress of long-running operations
+- **Format Support**: Handle different Redis data types automatically
+
+### 🔗 Connection Extension (`/connection`)
+- **Multi-Connection**: Manage multiple Redis instances simultaneously
+- **SSL Support**: Secure connections with certificate management
+- **Connection Switching**: Seamlessly switch between different Redis servers
+
+### 🏗️ Cluster Extension (`/cluster`)
+- **Local Deployment**: Deploy Redis clusters for development and testing
+- **Cluster Management**: Start, stop, and monitor cluster status
+- **Node Information**: Detailed cluster topology and slot distribution
+
+### 🛡️ Sentinel Extension (`/sentinel`)
+- **High Availability**: Deploy Redis Sentinel for failover testing
+- **Monitoring**: Track master-replica relationships
+- **Failover Testing**: Test high availability scenarios locally
+
+### ⚙️ Config Extension (`/config`)
+- **Runtime Configuration**: Modify settings without restarting
+- **Persistent Settings**: Save configuration changes to disk
+- **Environment Management**: Different configs for different environments
+
+For detailed documentation on each extension, see the [Built-in Extensions Guide](docs/built_in_extensions.md).
+
+## 🛠️ Creating Custom Extensions
+
+Redis Shell's extensible architecture allows you to create custom extensions for specialized functionality.
+
+### Quick Example
+
+1. **Create extension directory:**
+   ```bash
+   mkdir -p ~/.config/redis-shell/extensions/myext
+   ```
+
+2. **Create `extension.json`:**
+   ```json
+   {
+     "name": "myext",
+     "version": "1.0.0",
+     "description": "My custom extension",
+     "namespace": "/myext",
+     "commands": [
+       {
+         "name": "hello",
+         "description": "Say hello",
+         "usage": "/myext hello [name]"
+       }
+     ]
+   }
+   ```
+
+3. **Create `commands.py`:**
+   ```python
+   class MyextCommands:
+       def __init__(self, cli=None):
+           self.cli = cli
+
+       def handle_command(self, cmd, args):
+           if cmd == "hello":
+               name = args[0] if args else "World"
+               return f"Hello, {name}!"
+           return None
+   ```
+
+4. **Restart Redis Shell to load the extension**
+
+For comprehensive extension development documentation, see the [Extension Development Guide](docs/extension_development.md).
+
+## 🏗️ Architecture
+
+Redis Shell is built with a modular architecture that promotes extensibility and maintainability:
+
+- **Core Engine**: Handles command processing, connection management, and user interaction
+- **Extension System**: Plugin architecture for adding custom functionality
+- **State Management**: Persistent storage for configuration and history
+- **Connection Manager**: Multi-connection support with cluster detection
+- **UI Layer**: Interactive shell with autocompletion and history
+
+For detailed architecture information, see the [Architecture Guide](docs/architecture.md).
+
+## 🤝 Contributing
+
+We welcome contributions! Here's how to get started:
+
+1. **Fork the repository**
+2. **Create a feature branch**: `git checkout -b feature/amazing-feature`
+3. **Make your changes** and add tests
+4. **Run the test suite**: `python -m pytest`
+5. **Commit your changes**: `git commit -m 'Add amazing feature'`
+6. **Push to the branch**: `git push origin feature/amazing-feature`
+7. **Open a Pull Request**
+
+### Development Setup
+
+```bash
+# Clone your fork
+git clone https://github.com/yourusername/redis-shell.git
+cd redis-shell
+
+# Set up development environment
+uv venv
+source .venv/bin/activate
+uv pip install -e ".[dev]"
+
+# Run tests
+python -m pytest
+
+# Run with development settings
+redis-shell --log-level debug
+```
+
+## 📝 License
+
+This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
+
+## 🙏 Acknowledgments
+
+- Built with [Python](https://python.org/) and [redis-py](https://github.com/redis/redis-py)
+- Interactive features powered by [prompt-toolkit](https://github.com/prompt-toolkit/python-prompt-toolkit)
+- Inspired by the Redis community and the need for better Redis tooling
+
+## 📞 Support
+
+- **Documentation**: Check our comprehensive [documentation](docs/)
+- **Issues**: Report bugs and request features on [GitHub Issues](https://github.com/yourusername/redis-shell/issues)
+- **Discussions**: Join the conversation in [GitHub Discussions](https://github.com/yourusername/redis-shell/discussions)
+
+---
+
+**Redis Shell** - Making Redis interaction more powerful and enjoyable! 🚀
