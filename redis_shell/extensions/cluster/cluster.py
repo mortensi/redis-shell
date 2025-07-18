@@ -3,6 +3,7 @@ import subprocess
 import time
 import socket
 import redis
+import shutil
 
 class ClusterDeployer:
     def __init__(self):
@@ -69,18 +70,93 @@ class ClusterDeployer:
 
     def start_nodes(self):
         # Start Redis instances
+        redis_server_path = self._find_redis_server()
+        if not redis_server_path:
+            raise RuntimeError("redis-server not found in PATH. Please ensure Redis is installed and accessible.")
+
+        print(f"Using redis-server at: {redis_server_path}")
+
+        # Check if any ports are already in use and clean them up
+        ports_in_use = [port for port in self.ports if self.is_port_in_use(port)]
+        if ports_in_use:
+            print(f"Ports {ports_in_use} are already in use. Cleaning up existing Redis instances...")
+            self.cleanup()
+            # Wait a bit longer for cleanup to complete
+            time.sleep(2)
+
+            # Check again if ports are still in use
+            still_in_use = [port for port in self.ports if self.is_port_in_use(port)]
+            if still_in_use:
+                raise RuntimeError(f"Could not free up ports {still_in_use}. Please manually stop Redis instances on these ports.")
+
         for port in self.ports:
-            config = f"port {port}\ncluster-enabled yes\ncluster-config-file nodes-{port}.conf\n"
+            # Use a unique RDB filename for each cluster node to avoid conflicts
+            # and ensure we start with a clean state
+            rdb_filename = f"cluster-{port}.rdb"
+            config = f"""port {port}
+cluster-enabled yes
+cluster-config-file nodes-{port}.conf
+dbfilename {rdb_filename}
+dir ./
+"""
             with open(f"redis-{port}.conf", "w") as f:
                 f.write(config)
 
-            process = subprocess.Popen(
-                ['redis-server', f'redis-{port}.conf'],
-                stdout=subprocess.PIPE,
-                stderr=subprocess.PIPE
-            )
-            self.processes.append(process)
-            time.sleep(0.5)
+            # Remove any existing RDB file for this port to ensure clean start
+            if os.path.exists(rdb_filename):
+                try:
+                    os.remove(rdb_filename)
+                    print(f"Removed existing RDB file: {rdb_filename}")
+                except Exception as e:
+                    print(f"Warning: Could not remove {rdb_filename}: {e}")
+
+            try:
+                process = subprocess.Popen(
+                    [redis_server_path, f'redis-{port}.conf'],
+                    stdout=subprocess.PIPE,
+                    stderr=subprocess.PIPE
+                )
+                self.processes.append(process)
+
+                # Give the process a moment to start and check if it's still running
+                time.sleep(0.5)
+                if process.poll() is not None:
+                    # Process has already terminated
+                    stdout, stderr = process.communicate()
+                    error_msg = f"Redis server on port {port} failed to start (exit code: {process.returncode})"
+                    if stderr:
+                        stderr_text = stderr.decode('utf-8', errors='replace').strip()
+                        error_msg += f"\nSTDERR: {stderr_text}"
+                    if stdout:
+                        stdout_text = stdout.decode('utf-8', errors='replace').strip()
+                        error_msg += f"\nSTDOUT: {stdout_text}"
+                    raise RuntimeError(error_msg)
+
+            except FileNotFoundError:
+                raise RuntimeError(f"Failed to start redis-server: command not found at {redis_server_path}")
+            except Exception as e:
+                raise RuntimeError(f"Failed to start Redis server on port {port}: {str(e)}")
+
+    def _find_redis_server(self):
+        """Find the redis-server executable in the system PATH."""
+        # First try to find it using shutil.which
+        redis_server_path = shutil.which('redis-server')
+        if redis_server_path:
+            return redis_server_path
+
+        # If not found, try common installation paths
+        common_paths = [
+            '/usr/local/bin/redis-server',
+            '/opt/homebrew/bin/redis-server',
+            '/usr/bin/redis-server',
+            '/opt/redis/bin/redis-server'
+        ]
+
+        for path in common_paths:
+            if os.path.isfile(path) and os.access(path, os.X_OK):
+                return path
+
+        return None
 
     def create_cluster(self):
         # Connect to each node
@@ -259,5 +335,11 @@ class ClusterDeployer:
                 if os.path.exists(f'nodes-{port}.conf'):
                     os.remove(f'nodes-{port}.conf')
                     print(f"Removed nodes-{port}.conf")
+
+                # Remove cluster-specific RDB files
+                rdb_filename = f'cluster-{port}.rdb'
+                if os.path.exists(rdb_filename):
+                    os.remove(rdb_filename)
+                    print(f"Removed {rdb_filename}")
             except Exception as e:
                 print(f"Error removing configuration files for port {port}: {e}")
