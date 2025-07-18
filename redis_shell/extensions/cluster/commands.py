@@ -293,6 +293,12 @@ class ClusterCommands:
                 if os.path.exists(f'nodes-{port}.conf'):
                     os.remove(f'nodes-{port}.conf')
                     print(f"Removed nodes-{port}.conf")
+
+                # Remove cluster-specific RDB files
+                rdb_filename = f'cluster-{port}.rdb'
+                if os.path.exists(rdb_filename):
+                    os.remove(rdb_filename)
+                    print(f"Removed {rdb_filename}")
             except Exception as e:
                 print(f"Error removing configuration files for port {port}: {e}")
 
