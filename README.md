@@ -7,6 +7,8 @@
 
 An enhanced Redis CLI shell built with Python that goes beyond the standard `redis-cli`. Redis Shell provides a rich interactive experience with multi-connection management, data import/export, cluster management, and an extensible plugin architecture.
 
+![Redis Shell Demo](docs/images/shell.png)
+
 ## ✨ Key Features
 
 - 🚀 **Enhanced Interactive Shell** - Command history, autocompletion, and intuitive interface
