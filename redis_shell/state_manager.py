@@ -59,7 +59,16 @@ class StateManager:
 
     def refresh_state(self):
         """Refresh the state from disk."""
+        # Preserve command_history if it exists in memory but not on disk
+        old_history = self._state.get('command_history', []) if hasattr(self, '_state') else []
+
         self._state = self._load_state()
+
+        # Restore command_history if it was lost during refresh
+        if 'command_history' not in self._state and old_history:
+            self._state['command_history'] = old_history
+        elif 'command_history' not in self._state:
+            self._state['command_history'] = []
 
     def _save_state(self):
         """Save state to file."""
@@ -108,7 +117,14 @@ class StateManager:
             max_history: Maximum number of commands to keep in history
         """
         # Don't add empty commands or duplicates of the most recent command
-        if not command or (self._state['command_history'] and self._state['command_history'][-1] == command):
+        if (
+            not command
+            or command.startswith('/history')
+            or (
+                self._state['command_history']
+                and self._state['command_history'][-1] == command
+            )
+        ):
             return
 
         # Add the command to history
